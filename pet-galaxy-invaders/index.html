@@ -1,0 +1,77 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="theme-color" content="#0a120d">
+  <title>Galaxy Invaders · PET arcade</title>
+  <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+  <main class="cabinet">
+    <header class="masthead">
+      <div><p class="eyebrow">COMMODORE PET / BROWSER EDITION</p><h1>GALAXY INVADERS<span class="cursor" aria-hidden="true">▌</span></h1></div>
+      <span class="power"><i></i> READY</span>
+    </header>
+    <section class="monitor" aria-label="Galaxy Invaders game">
+      <div class="stats" aria-label="Game statistics">
+        <div><span>SCORE</span><strong id="score">000000</strong></div>
+        <div><span>BEST</span><strong id="best">000000</strong></div>
+        <div><span>WAVE</span><strong id="wave">01</strong></div>
+        <div><span>LIVES</span><strong id="lives">20</strong></div>
+      </div>
+      <div class="screen" id="screen">
+        <canvas id="game" width="320" height="200" tabindex="0" aria-label="Arcade playfield. Move with period and equals or the arrow keys. Hold Space to fire."></canvas>
+        <div id="overlay" class="overlay">
+          <div class="overlay-card">
+            <p id="overlay-kicker" class="eyebrow">40 COLUMNS. ONE MISSION.</p>
+            <h2 id="overlay-title">DEFEND THE EARTH</h2>
+            <p id="overlay-text">Move your man. Fire your gun.<br>Don’t let the invaders through.</p>
+            <button id="start" class="primary">BEGIN GAME <span>[B]</span></button>
+            <p class="start-note" id="start-note">Original PET setting: 20 lives.</p>
+          </div>
+        </div>
+        <div id="wave-message" class="wave-message" hidden></div>
+      </div>
+      <div class="screen-footer"><span id="status">AWAITING COMMAND</span><span>▰ ▰ ▰</span></div>
+    </section>
+    <div class="toolbar">
+      <p class="keyboard-hint"><kbd>.</kbd><kbd>=</kbd> MOVE <span class="divider">/</span> <kbd>SPACE</kbd> FIRE</p>
+      <div class="actions">
+        <button id="pause" disabled>PAUSE <span>[P]</span></button>
+        <button id="sound" aria-pressed="false">SOUND OFF</button>
+        <button id="settings">SETUP <span>[C]</span></button>
+      </div>
+    </div>
+    <div class="touch-controls" aria-label="Touch controls">
+      <button id="left" aria-label="Move left">←</button>
+      <button id="fire" aria-label="Fire">FIRE</button>
+      <button id="right" aria-label="Move right">→</button>
+    </div>
+    <footer class="page-footer"><span>FROM THE PET’S GREEN SCREEN TO YOURS.</span><button id="about">CONTROLS &amp; ABOUT</button></footer>
+    <p id="announcement" class="sr-only" aria-live="polite"></p>
+  </main>
+  <dialog id="setup-dialog">
+    <form id="setup-form">
+      <p class="eyebrow">COMMAND C</p><h2>CHANGE PARAMETERS</h2>
+      <p class="dialog-copy">Settings apply when you begin a new game.</p>
+      <label for="difficulty">Difficulty</label>
+      <select id="difficulty" name="difficulty"><option value="1">1 · STEADY</option><option value="2">2 · QUICK</option><option value="3">3 · RELENTLESS</option></select>
+      <label for="starting-lives">Your men</label>
+      <select id="starting-lives" name="lives"><option value="20">20 · ORIGINAL PET DEFAULT</option><option value="5">5 · SHORT GAME</option><option value="3">3 · ARCADE CHALLENGE</option><option value="1">1 · ONE CHANCE</option></select>
+      <label for="columns">Enemy columns</label>
+      <select id="columns" name="columns"><option value="4">4</option><option value="6" selected>6 · ORIGINAL PET DEFAULT</option><option value="8">8</option><option value="10">10</option></select>
+      <div class="dialog-actions"><button type="button" id="cancel-setup">CANCEL</button><button class="primary" type="submit">SAVE SETTINGS</button></div>
+    </form>
+  </dialog>
+  <dialog id="about-dialog">
+    <p class="eyebrow">GALAXY INVADERS</p><h2>THE ORIGINAL COMMANDS</h2>
+    <dl class="controls-list"><dt>. / =</dt><dd>Move left / right (arrow keys also work)</dd><dt>SPACE</dt><dd>Fire; hold for repeated shots</dd><dt>B</dt><dd>Begin or restart a game</dd><dt>C</dt><dd>Change parameters</dd><dt>[ / E</dt><dd>Stop the current game</dd><dt>P</dt><dd>Pause / resume (added for this edition)</dd></dl>
+    <p class="dialog-copy">Clear every invader to begin a new wave. Shelters stop both sides’ shots, but wear away. The passing mystery ship has a random bonus.</p>
+    <p class="dialog-copy">A browser recreation of the PET program titled <em>Galaxy Invaders</em>, supplied as <em>space invader.prg</em>. Its original launcher and machine-code program are preserved in this project. Graphics, scoring and timing are adapted for the browser.</p>
+    <button id="close-about" class="primary">BACK TO THE SCREEN</button>
+  </dialog>
+  <script src="game.js"></script>
+  <script src="app.js"></script>
+</body>
+</html>

@@ -1,5 +1,7 @@
 # Inca Curse — recovered Inform 7 edition
 
+The repository also contains [Galaxy Invaders, a playable PET-style browser game](pet-galaxy-invaders/README.md). Download its [standalone browser ZIP](pet-galaxy-invaders/Galaxy-Invaders-Browser.zip), unzip it, and open `index.html`.
+
 This is a working, table-driven Inform 7 reconstruction of the game in
 `INCACURS.T64`. It is not the original author's high-level source: the tape
 contains a compressed 6502 executable, not BASIC or Inform source. The game

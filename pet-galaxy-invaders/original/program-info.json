@@ -1,0 +1,98 @@
+{
+  "title": "Galaxy Invaders",
+  "load_address": 1025,
+  "start_address": 3480,
+  "sha256": "6b0e22e95798f28c201c4107c8c4f282b1a6f798d6d7fa4db081ccaf1c560a92",
+  "parameters": [
+    {
+      "number": 1,
+      "label": "Mystery movement counter",
+      "value": 25
+    },
+    {
+      "number": 2,
+      "label": "Mystery launch counter",
+      "value": 7
+    },
+    {
+      "number": 3,
+      "label": "Enemy column spacing",
+      "value": 3
+    },
+    {
+      "number": 4,
+      "label": "Number of lives",
+      "value": 20
+    },
+    {
+      "number": 5,
+      "label": "Enemy step size",
+      "value": 1
+    },
+    {
+      "number": 6,
+      "label": "Additional enemy columns per wave",
+      "value": 1
+    },
+    {
+      "number": 7,
+      "label": "Initial enemy columns",
+      "value": 6
+    },
+    {
+      "number": 8,
+      "label": "Enemy row spacing",
+      "value": 2
+    },
+    {
+      "number": 9,
+      "label": "Initial enemy height",
+      "value": 9
+    },
+    {
+      "number": 10,
+      "label": "Enemy height drop per wave",
+      "value": 1
+    },
+    {
+      "number": 11,
+      "label": "Enemy movement counter",
+      "value": 5
+    },
+    {
+      "number": 12,
+      "label": "Passing missile hit width",
+      "value": 2
+    },
+    {
+      "number": 14,
+      "label": "Player movement counter",
+      "value": 20
+    },
+    {
+      "number": 15,
+      "label": "Enemy missile movement counter",
+      "value": 20
+    },
+    {
+      "number": 16,
+      "label": "Player shot movement counter",
+      "value": 20
+    },
+    {
+      "number": 19,
+      "label": "Enemy missile launch counter",
+      "value": 16
+    },
+    {
+      "number": 20,
+      "label": "Enemy missile random threshold",
+      "value": 10
+    },
+    {
+      "number": 22,
+      "label": "Delay counter",
+      "value": 10
+    }
+  ]
+}
