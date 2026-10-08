@@ -14,8 +14,16 @@ identifies itself as **Adventure B: Inca Curse**, published by Artic Computing.
 
 No extensions, T64 reader, emulator, or Python packages are needed to compile
 or play the Inform story. The source was compiled with Inform 7 **10.1.2** and
-Inform 6 **6.41**, and played with Glulxe. Older Inform 7 releases have not been
-tested. `Inca Curse.ulx` is also included for a Glulx-compatible interpreter.
+Inform 6 **6.41**, and played with Glulxe. It also compiles with Inform 7
+**6M62** and Inform 6 **6.33**. The explicit `Use MAX_STATIC_DATA of 2000000.`
+setting accommodates the recovered tables in that older compiler.
+`Inca Curse.ulx` is also included for a Glulx-compatible interpreter.
+
+If you copied the earlier source into 6M62 and got an Inform 6 memory error,
+replace it with the updated source, or add `Use MAX_STATIC_DATA of 2000000.`
+near the top. Keep the story format set to Glulx. The generic error page's
+`MAX_PROP_TABLE_SIZE` text is only an example; the reproduced failure is
+actually `MAX_STATIC_DATA` at its old default of 180000.
 
 The included `Inca Curse.inform/Source/story.ni` contains the same source for
 those who prefer a project directory. Creating a new project and pasting the

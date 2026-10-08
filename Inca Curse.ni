@@ -2,6 +2,7 @@
 
 Use scoring.
 Use full-length room descriptions.
+Use MAX_STATIC_DATA of 2000000.
 
 [This is a recovered, table-driven port, not the lost original authoring source.
 The game data below comes directly from the decompressed T64 payload.

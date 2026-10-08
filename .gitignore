@@ -1,0 +1,8 @@
+__pycache__/
+*.pyc
+/build/
+/Inca Curse.inform/Build/
+/Inca Curse.inform/Index/
+/Inca Curse.inform/Metadata.iFiction
+/Inca Curse.inform/Release.blurb
+/Inca Curse.inform/manifest.plist

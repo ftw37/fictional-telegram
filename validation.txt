@@ -5,3 +5,4 @@ sand countdown: 26 commands; every room, score, register and object state matche
 carrying limit: 20 commands; every room, score, register and object state matched the 6502 reference
 170 differential command checks passed. Release story also completed the winning route.
 Inform SAVE/RESTORE and UNDO: location, inventory, registers and score restored correctly.
+Compatibility: Inform 7 6M62 and Inform 6.33 compiled with MAX_STATIC_DATA 2000000; the 72-command winning route passed (score 200).
