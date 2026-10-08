@@ -1,51 +1,71 @@
-# Galaxy Invaders — PET browser edition
+# Galaxy Invaders — original PET character edition
 
-A playable browser recreation of the Commodore PET game supplied in `Space Invader.zip`. The original program calls itself **Galaxy Invaders**.
+The uploaded PET arcade program now runs as **original 6502 machine code** in the browser. Its entire playfield is the PET's **40-column, 25-row character screen**: 1,000 character cells, rendered with PET glyphs and inverse graphics. The previous generic pixel-sprite recreation has been replaced.
+
+![Original PET character screen running in the browser](preview.png)
 
 ## Play
 
-Download and unzip `Galaxy-Invaders-Browser.zip`, then open `index.html` in a modern browser. All assets are local; no account, installation, build, or internet connection is needed. If your browser restricts local HTML, serve this folder instead:
+Download and unzip [Galaxy-Invaders-Browser.zip](Galaxy-Invaders-Browser.zip), then open `index.html` in a modern browser. All assets are local; no account, build, emulator installation, or internet connection is needed. If your browser restricts local HTML, serve this folder:
 
 ```sh
 python3 -m http.server 8080
 ```
 
-Then open `http://localhost:8080` in your browser. With Node.js installed, `npm start` runs the same server bound to your own computer.
+Then open `http://localhost:8080` in your own browser. `npm start` runs the same server bound to your computer.
 
 | Command | Action |
 | --- | --- |
 | B / Begin Game | Begin or restart |
-| . / = | Move left / right |
+| . / = | Original left / right movement |
+| Space | Original fire command; release and press again for another shot |
+| [ | Original stop command |
 | Arrow keys | Alternative movement |
-| Space | Fire; hold for repeated shots |
-| [ / E | Stop |
 | P / Escape | Pause or resume |
-| C / Setup | Change settings for the next game |
+| C / Setup | Change original parameters for the next game |
+| E | Stop shortcut (the original BASIC menu used E to exit) |
 
-Touch devices have movement and fire buttons. Sound is optional and initially off. Changing tabs automatically pauses the game. Your best score and settings are saved locally when browser storage is available.
+Touch devices have movement and fire buttons. Changing tabs pauses the game. Setup changes the original number-of-men, initial-column, and delay-counter bytes. Defaults are 20 men, six initial columns, and delay counter 10. The original code handles enemy formations, rack progression, scoring, mystery ships, four shelters, bullets, damage, and game termination.
 
-Clear each formation to start another wave. Enemies reverse direction and descend at the edges; the game ends when they invade or you run out of lives. Shelters stop both sides' shots and gradually erode. Hit the passing mystery ship for a random bonus. Setup offers difficulty, starting lives, and formation width.
+## What runs
 
-## What was recovered
+`original/space-invader.prg` is the unmodified 5,783-byte program from the user's `Space Invader.zip`. Its BASIC launcher names the game **Galaxy Invaders** and starts its arcade code with `SYS 3480` (`$0D98`). The PRG loads at `$0401`.
 
-`original/space-invader.prg` is the unmodified 5,783-byte program from the supplied archive. Its SHA-256 is `6b0e22e95798f28c201c4107c8c4f282b1a6f798d6d7fa4db081ccaf1c560a92`.
+`cpu6502.js` supplies a documented NMOS 6502 instruction interpreter. `game.js` loads the original program, starts at its SYS entry point, and reads its screen memory at `$8000–$83E7`. The executable's self-modifying instructions and original sprite-building character tables run directly. `app.js` draws that character RAM without replacement sprites, extra score graphics, or changes to gameplay rules.
 
-The program loads at `$0401` and contains a tokenized BASIC menu/instruction launcher plus 6502 machine code. The launcher starts the arcade code with `SYS 3480` (`$0D98`). `original/launcher.bas` is a readable listing, with graphics/control bytes written as `{PETSCII:XX}` placeholders; it is a reference listing, not a directly importable BASIC file. `original/program-info.json` records recovered parameter names and byte values. The supplied program's author was not identified.
+The adapter supplies a nominal 1 MHz CPU clock, a 60 Hz interrupt with register-save/restore wrappers, the active-low keyboard bits read at `$E812`, and a descending timer byte at `$E849`. It provides the IRQ vector expected by the BASIC launcher rather than loading BASIC/KERNAL ROMs. The launcher menu text is reproduced in PET characters; the BASIC interpreter itself does not run. The browser adds pause, touch input, alternate keys, saved parameter preferences, and optional sound approximated from the original VIA/CB2 register values. Sound is initially off. This is a focused adapter for this executable, not a complete or cycle-accurate PET hardware emulator.
 
-The original instructions establish the title, movement/fire/stop commands, successive enemy racks, random mystery-ship bonus, and loss on invasion or exhaustion of men. Original defaults recovered from the parameter table include **20 men**, **six initial enemy columns**, and **one additional column per rack**.
+## Preserved inputs and provenance
 
-## Browser adaptations
+- `original/space-invader.prg`: uploaded original. SHA-256: `6b0e22e95798f28c201c4107c8c4f282b1a6f798d6d7fa4db081ccaf1c560a92`.
+- `original/launcher.bas`: readable BASIC launcher listing. Graphics/control bytes appear as `{PETSCII:XX}` placeholders; this is a reference listing, not an importable BASIC file.
+- `original/program-info.json`: recovered parameter labels and initial byte values.
+- `original/pet-characters.bin`: 2,048-byte Commodore PET character ROM `characters-2.901447-10.bin`, obtained from [VICE's PET data](https://github.com/VICE-Team/svn-mirror/blob/main/vice/data/PET/characters-2.901447-10.bin). SHA-256: `da3374c21d6ea440cef5f338ce3f524e0a1e40dcb1ef64446c695f92c636f1fa`. The renderer uses its first 1,024 bytes (uppercase/graphics) and reverses those glyphs for inverse screen codes.
 
-This is newly written JavaScript based on the recovered program and instructions. It does not execute the PET machine code and has not been validated as a cycle-accurate port. The 320×200 green monochrome screen evokes a 40-column PET display; sprites are newly drawn pixel art rather than extracted PET glyphs.
-
-Movement speeds, firing intervals, collision boxes, three enemy rows, destructible shelter shapes, brief invulnerability, and difficulty choices are browser implementations. Enemy scores are 30/20/10 by row; mystery bonuses are 50/100/150/200/300. Formations grow to a maximum of 12 columns and shelters renew each wave. These details are adaptations, not claims about the original executable. Arrow keys, touch input, pause, optional synthesized sound, and a persistent best score are conveniences added for this edition.
+The supplied game's author has not been identified. The user also provided [this Internet Archive reference](https://archive.org/details/d64_petgame_space_invaders), but access to archive.org was blocked in the development environment. Its executable and screenshots have not been compared with this upload, so this project does not claim the two releases are identical.
 
 ## Develop and verify
 
-No runtime dependencies or build step. Edit `game.js` for simulation rules, `app.js` for rendering/input, and `styles.css` for presentation. Run the gameplay tests with Node.js 18 or newer:
+No runtime dependencies or build step. The original arcade instructions live in `pet-data.js`, embedded so local-file startup requires no fetch or module imports. Regenerate that file from the preserved binaries with:
+
+```sh
+python3 tools/embed_assets.py
+```
+
+Run the tests with Node.js 18 or newer:
 
 ```sh
 npm test
 ```
 
-Validation completed: 12 gameplay tests passed, covering movement limits, shooting/scoring, shelter damage, life loss/invulnerability, invasion, edge reversal/descent, wave progression, mystery bonuses, pause, and restart. Chromium checks also passed for startup over a local HTTP server, original keyboard controls, scoring, pause, settings on restart, and a 390-pixel touch layout, with no JavaScript errors. Chromium's managed policy blocked `file:` navigation in the test environment, so double-click startup was not browser-tested here; the scripts use no imports, network requests, or other server-only features.
+All **13 tests pass**. The suite compares full 64 KB memory hashes, all CPU registers/cycle counts, and the 1,000-byte screen against **1,040 checkpoints** independently generated with py65. Traces cover idle play, movement/firing/stop, changed original parameters, and a complete game ending. Other tests check binary identity, PET inverse glyphs, pause, restart, Space press/release behavior, and CPU arithmetic/addressing.
+
+The checked-in reference fixtures can be regenerated with Python and `py65==1.2.0` (needed only for this independent validation):
+
+```sh
+python3 tools/reference_trace.py > tests/fixtures/reference-trace.json
+```
+
+Chromium checks passed for startup over a local HTTP server, exact canvas pixels from character RAM, the original B/=/Space/[ commands, pause/resume, settings/restart, and a 390-pixel touch layout with no JavaScript errors. Managed Chromium blocked `file:` navigation in this environment, so double-click startup was not browser-tested here; the delivery uses classic local scripts and no server-only APIs.
+
+The optional repeatable browser check is `python3 tools/browser_smoke.py` while the local server is running. It requires Python Playwright and Chromium and also exercises actual touch press/release events.
