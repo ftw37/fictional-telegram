@@ -1,0 +1,72 @@
+cut leav
+take bran
+s
+with bran
+u
+take rock
+with rock
+door
+drop bran
+drop rock
+e
+e
+take blan
+e
+take key
+s
+take matc
+w
+take chis
+s
+take rope
+e
+u
+n
+w
+w
+w
+d
+d
+w
+clim boat
+w
+take lamp
+with matc
+smot fire
+take ring
+with chis
+drop blan
+drop chis
+u
+e
+e
+e
+e
+s
+d
+d
+take blue
+u
+w
+d
+with key
+drop key
+open
+take red
+w
+ente port
+drop red
+s
+take chan
+n
+u
+with rope
+w
+n
+clim boat
+w
+u
+e
+n
+n
+n

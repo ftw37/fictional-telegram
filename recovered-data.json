@@ -1,0 +1,4664 @@
+{
+  "rooms": [
+    {
+      "id": 0,
+      "title": "In A Jungle Clearing",
+      "description": "I AM IN A JUNGLE CLEARING\nEXITS ARE SOUTH"
+    },
+    {
+      "id": 1,
+      "title": "On The Temple Steps",
+      "description": "I AM ON THE TEMPLE STEPS\nEXITS ARE NORTH"
+    },
+    {
+      "id": 2,
+      "title": "In The Temple",
+      "description": "I AM IN THE TEMPLE\nEXITS ARE NORTH"
+    },
+    {
+      "id": 3,
+      "title": "In The Hidden Hall",
+      "description": "I AM IN THE HIDDEN HALL\nEXITS ARE DOWN,NORTH,EAST AND WEST"
+    },
+    {
+      "id": 4,
+      "title": "In A Cellar",
+      "description": "I AM IN A CELLAR\nEXITS ARE SOUTH,EAST AND WEST"
+    },
+    {
+      "id": 5,
+      "title": "In The Sacrificial Chamber",
+      "description": "I AM IN THE SACRIFICIAL CHAMBER\nEXITS ARE EAST AND WEST"
+    },
+    {
+      "id": 6,
+      "title": "In A Store Room",
+      "description": "I AM IN A STORE ROOM\nEXITS ARE SOUTH AND WEST"
+    },
+    {
+      "id": 7,
+      "title": "In A Statue Room",
+      "description": "I AM IN A STATUE ROOM\nEXITS ARE SOUTH AND EAST"
+    },
+    {
+      "id": 8,
+      "title": "In A Guilded Rest Room",
+      "description": "I AM IN A GUILDED REST ROOM\nEXITS ARE NORTH,SOUTH AND EAST"
+    },
+    {
+      "id": 9,
+      "title": "In The Slaves Waiting Room",
+      "description": "I AM IN THE SLAVES WAITING ROOM\nEXITS ARE NORTH"
+    },
+    {
+      "id": 10,
+      "title": "In A Small Room",
+      "description": "I AM IN A SMALL ROOM\nEXITS ARE NORTH AND EAST"
+    },
+    {
+      "id": 11,
+      "title": "In A Painted Corridor",
+      "description": "I AM IN A PAINTED CORRIDOR\nEXITS ARE SOUTH,EAST AND WEST"
+    },
+    {
+      "id": 12,
+      "title": "In A Rock Room",
+      "description": "I AM IN A ROCK ROOM\nEXITS ARE DOWN,NORTH AND WEST"
+    },
+    {
+      "id": 13,
+      "title": "In The Wine Room",
+      "description": "I AM IN THE WINE ROOM\nEXITS ARE DOWN,NORTH AND EAST"
+    },
+    {
+      "id": 14,
+      "title": "In The Hot Baths",
+      "description": "I AM IN THE HOT BATHS\nEXITS ARE UP,DOWN AND WEST"
+    },
+    {
+      "id": 15,
+      "title": "On A Ledge",
+      "description": "I AM ON A LEDGE\nEXITS ARE NORTH AND SOUTH"
+    },
+    {
+      "id": 16,
+      "title": "In The Armoury",
+      "description": "I AM IN THE ARMOURY\nEXITS ARE DOWN AND EAST"
+    },
+    {
+      "id": 17,
+      "title": "In The Prison Torture Room",
+      "description": "I AM IN THE PRISON TORTURE ROOM\nEXITS ARE UP,DOWN AND WEST"
+    },
+    {
+      "id": 18,
+      "title": "At A Pool Side",
+      "description": "I AM AT A POOL SIDE\nTUNNELS LEAD ACROSS THE WATER SOUTH,WEST AND EAST"
+    },
+    {
+      "id": 19,
+      "title": "In The Priests Rest Room",
+      "description": "I AM IN THE PRIESTS REST ROOM\nEXITS ARE UP AND WEST"
+    },
+    {
+      "id": 20,
+      "title": "In The Fire Room",
+      "description": "I AM IN THE FIRE ROOM\nEXITS ARE UP"
+    },
+    {
+      "id": 21,
+      "title": "In The Robe Room",
+      "description": "I AM IN THE ROBE ROOM\nEXITS ARE NORTH AND EAST"
+    },
+    {
+      "id": 22,
+      "title": "In The Slave Room",
+      "description": "I AM IN THE SLAVE ROOM\nEXITS ARE EAST,WEST AND DOWN"
+    },
+    {
+      "id": 23,
+      "title": "In The Panelled Room",
+      "description": "I AM IN THE PANELLED ROOM\nEXITS ARE UP AND WEST"
+    },
+    {
+      "id": 24,
+      "title": "In The Forgotten Room",
+      "description": "I AM IN THE FORGOTTEN ROOM\nEXITS ARE UP"
+    },
+    {
+      "id": 25,
+      "title": "In A Sand Dungeon",
+      "description": "I AM IN A SAND DUNGEON\nA PORTHOLE LEADS DOWNWARDS"
+    },
+    {
+      "id": 26,
+      "title": "In The Sacred Stone Room",
+      "description": "I AM IN THE SACRED STONE ROOM\nEXITS ARE NORTH AND WEST"
+    },
+    {
+      "id": 27,
+      "title": "In The Eagle Hall",
+      "description": "I AM IN THE EAGLE HALL\nEXITS ARE DOWN"
+    },
+    {
+      "id": 28,
+      "title": "In A Hall Of Gold",
+      "description": "I AM IN A HALL OF GOLD\nEXITS ARE NORTH AND SOUTH"
+    },
+    {
+      "id": 29,
+      "title": "In The Traitors Hall",
+      "description": "I AM IN THE TRAITORS HALL\nEXITS ARE NORTH AND SOUTH"
+    },
+    {
+      "id": 30,
+      "title": "In A Maze",
+      "description": "I AM IN A MAZE\nTHERE ARE PASSAGES EVERYWHERE"
+    },
+    {
+      "id": 31,
+      "title": "In A Maze",
+      "description": "I AM IN A MAZE\nTHERE ARE PASSAGES EVERYWHERE"
+    },
+    {
+      "id": 32,
+      "title": "In A Maze",
+      "description": "I AM IN A MAZE\nTHERE ARE PASSAGES EVERYWHERE"
+    },
+    {
+      "id": 33,
+      "title": "In A Maze",
+      "description": "I AM IN A MAZE\nTHERE ARE PASSAGES EVERYWHERE"
+    },
+    {
+      "id": 34,
+      "title": "In A Maze",
+      "description": "I AM IN A MAZE\nTHERE ARE PASSAGES EVERYWHERE"
+    },
+    {
+      "id": 35,
+      "title": "In A Maze",
+      "description": "I AM IN A MAZE\nTHERE ARE PASSAGES EVERYWHERE"
+    },
+    {
+      "id": 36,
+      "title": "In A Maze",
+      "description": "I AM IN A MAZE\nTHERE ARE PASSAGES EVERYWHERE"
+    },
+    {
+      "id": 37,
+      "title": "In A Maze",
+      "description": "I AM IN A MAZE\nTHERE ARE PASSAGES EVERYWHERE"
+    },
+    {
+      "id": 38,
+      "title": "In A Maze",
+      "description": "I AM IN A MAZE\nTHERE ARE PASSAGES EVERYWHERE"
+    },
+    {
+      "id": 39,
+      "title": "In The Golden Torture Room",
+      "description": "I AM IN THE GOLDEN TORTURE ROOM\nEXITS ARE NORTH AND EAST"
+    },
+    {
+      "id": 40,
+      "title": "In A Living Room",
+      "description": "I AM IN A LIVING ROOM\nEXITS ARE SOUTH AND WEST"
+    },
+    {
+      "id": 41,
+      "title": "In The Slave Eating Room",
+      "description": "I AM IN THE SLAVE EATING ROOM\nEXITS ARE SOUTH"
+    },
+    {
+      "id": 42,
+      "title": "In The Wash Room",
+      "description": "I AM IN THE WASH ROOM\nEXITS ARE NORTH AND SOUTH"
+    },
+    {
+      "id": 43,
+      "title": "In The Slaughter Room",
+      "description": "I AM IN THE SLAUGHTER ROOM\nEXITS ARE NORTH AND WEST"
+    },
+    {
+      "id": 44,
+      "title": "In A Weapon Room",
+      "description": "I AM IN A WEAPON ROOM\nEXITS ARE SOUTH,EAST AND WEST"
+    },
+    {
+      "id": 45,
+      "title": "In A Guard Room",
+      "description": "I AM IN A GUARD ROOM\nEXITS ARE NORTH AND WEST"
+    },
+    {
+      "id": 46,
+      "title": "In A Furnace",
+      "description": "I AM IN A FURNACE\nEXITS ARE DOWN AND EAST"
+    },
+    {
+      "id": 47,
+      "title": "In A Kitchen",
+      "description": "I AM IN A KITCHEN\nEXITS ARE NORTH AND EAST"
+    },
+    {
+      "id": 48,
+      "title": "In The Emperors Corridor",
+      "description": "I AM IN THE EMPERORS CORRIDOR\nEXITS ARE SOUTH,A PORTHOLE LEADS UPWARDS AND A SECRET PASSAGE LEADS WEST"
+    },
+    {
+      "id": 49,
+      "title": "In The Treasury",
+      "description": "I AM IN THE TREASURY\nEXITS ARE SOUTH"
+    },
+    {
+      "id": 50,
+      "title": "In The Emperors Throne Room",
+      "description": "I AM IN THE EMPERORS THRONE ROOM\nEXITS ARE NORTH AND EAST"
+    },
+    {
+      "id": 51,
+      "title": "In The Hall Of Halls",
+      "description": "I AM IN THE HALL OF HALLS\nEXITS ARE SOUTH,EAST AND WEST"
+    },
+    {
+      "id": 52,
+      "title": "In The Mirror Room",
+      "description": "I AM IN THE MIRROR ROOM\nEXITS ARE EAST"
+    },
+    {
+      "id": 53,
+      "title": "In The Emperors Bedroom",
+      "description": "I AM IN THE EMPERORS BEDROOM\nEXITS ARE DOWN AND NORTH"
+    },
+    {
+      "id": 54,
+      "title": "In The Slave Preparation Room",
+      "description": "I AM IN THE SLAVE PREPARATION ROOM\nEXITS ARE UP,DOWN AND EAST"
+    },
+    {
+      "id": 55,
+      "title": "In The Room Of Death",
+      "description": "I AM IN THE ROOM OF DEATH\nEXITS ARE UP,DOWN AND WEST"
+    },
+    {
+      "id": 56,
+      "title": "In The Desolation Cell",
+      "description": "I AM IN THE DESOLATION CELL\nEXITS ARE UP AND WEST"
+    },
+    {
+      "id": 57,
+      "title": "In A Boat",
+      "description": "I AM IN A BOAT\nTUNNELS LEAD SOUTH,WEST AND EAST"
+    }
+  ],
+  "exits": [
+    {
+      "source": 0,
+      "verb": 4,
+      "target": 1
+    },
+    {
+      "source": 1,
+      "verb": 3,
+      "target": 0
+    },
+    {
+      "source": 2,
+      "verb": 3,
+      "target": 1
+    },
+    {
+      "source": 3,
+      "verb": 2,
+      "target": 14
+    },
+    {
+      "source": 3,
+      "verb": 3,
+      "target": 2
+    },
+    {
+      "source": 3,
+      "verb": 5,
+      "target": 4
+    },
+    {
+      "source": 3,
+      "verb": 6,
+      "target": 7
+    },
+    {
+      "source": 4,
+      "verb": 4,
+      "target": 10
+    },
+    {
+      "source": 4,
+      "verb": 5,
+      "target": 5
+    },
+    {
+      "source": 4,
+      "verb": 6,
+      "target": 3
+    },
+    {
+      "source": 5,
+      "verb": 5,
+      "target": 6
+    },
+    {
+      "source": 5,
+      "verb": 6,
+      "target": 4
+    },
+    {
+      "source": 6,
+      "verb": 4,
+      "target": 12
+    },
+    {
+      "source": 6,
+      "verb": 6,
+      "target": 5
+    },
+    {
+      "source": 7,
+      "verb": 4,
+      "target": 8
+    },
+    {
+      "source": 7,
+      "verb": 5,
+      "target": 3
+    },
+    {
+      "source": 8,
+      "verb": 3,
+      "target": 7
+    },
+    {
+      "source": 8,
+      "verb": 4,
+      "target": 13
+    },
+    {
+      "source": 8,
+      "verb": 5,
+      "target": 9
+    },
+    {
+      "source": 9,
+      "verb": 3,
+      "target": 8
+    },
+    {
+      "source": 10,
+      "verb": 3,
+      "target": 4
+    },
+    {
+      "source": 10,
+      "verb": 5,
+      "target": 11
+    },
+    {
+      "source": 11,
+      "verb": 4,
+      "target": 16
+    },
+    {
+      "source": 11,
+      "verb": 5,
+      "target": 12
+    },
+    {
+      "source": 11,
+      "verb": 6,
+      "target": 10
+    },
+    {
+      "source": 12,
+      "verb": 2,
+      "target": 17
+    },
+    {
+      "source": 12,
+      "verb": 3,
+      "target": 6
+    },
+    {
+      "source": 12,
+      "verb": 6,
+      "target": 11
+    },
+    {
+      "source": 13,
+      "verb": 2,
+      "target": 18
+    },
+    {
+      "source": 13,
+      "verb": 3,
+      "target": 8
+    },
+    {
+      "source": 13,
+      "verb": 5,
+      "target": 14
+    },
+    {
+      "source": 14,
+      "verb": 1,
+      "target": 3
+    },
+    {
+      "source": 14,
+      "verb": 2,
+      "target": 19
+    },
+    {
+      "source": 14,
+      "verb": 6,
+      "target": 13
+    },
+    {
+      "source": 15,
+      "verb": 3,
+      "target": 7
+    },
+    {
+      "source": 15,
+      "verb": 4,
+      "target": 4
+    },
+    {
+      "source": 16,
+      "verb": 2,
+      "target": 23
+    },
+    {
+      "source": 16,
+      "verb": 5,
+      "target": 17
+    },
+    {
+      "source": 17,
+      "verb": 1,
+      "target": 12
+    },
+    {
+      "source": 17,
+      "verb": 2,
+      "target": 24
+    },
+    {
+      "source": 17,
+      "verb": 6,
+      "target": 16
+    },
+    {
+      "source": 19,
+      "verb": 1,
+      "target": 14
+    },
+    {
+      "source": 19,
+      "verb": 6,
+      "target": 18
+    },
+    {
+      "source": 21,
+      "verb": 3,
+      "target": 18
+    },
+    {
+      "source": 21,
+      "verb": 5,
+      "target": 22
+    },
+    {
+      "source": 22,
+      "verb": 5,
+      "target": 23
+    },
+    {
+      "source": 22,
+      "verb": 6,
+      "target": 21
+    },
+    {
+      "source": 23,
+      "verb": 1,
+      "target": 16
+    },
+    {
+      "source": 23,
+      "verb": 6,
+      "target": 22
+    },
+    {
+      "source": 24,
+      "verb": 1,
+      "target": 17
+    },
+    {
+      "source": 26,
+      "verb": 3,
+      "target": 12
+    },
+    {
+      "source": 26,
+      "verb": 6,
+      "target": 25
+    },
+    {
+      "source": 27,
+      "verb": 2,
+      "target": 49
+    },
+    {
+      "source": 28,
+      "verb": 3,
+      "target": 48
+    },
+    {
+      "source": 28,
+      "verb": 4,
+      "target": 29
+    },
+    {
+      "source": 29,
+      "verb": 3,
+      "target": 28
+    },
+    {
+      "source": 29,
+      "verb": 4,
+      "target": 30
+    },
+    {
+      "source": 30,
+      "verb": 1,
+      "target": 30
+    },
+    {
+      "source": 30,
+      "verb": 2,
+      "target": 30
+    },
+    {
+      "source": 30,
+      "verb": 3,
+      "target": 31
+    },
+    {
+      "source": 30,
+      "verb": 4,
+      "target": 32
+    },
+    {
+      "source": 30,
+      "verb": 5,
+      "target": 30
+    },
+    {
+      "source": 30,
+      "verb": 6,
+      "target": 30
+    },
+    {
+      "source": 31,
+      "verb": 1,
+      "target": 31
+    },
+    {
+      "source": 31,
+      "verb": 2,
+      "target": 31
+    },
+    {
+      "source": 31,
+      "verb": 3,
+      "target": 31
+    },
+    {
+      "source": 31,
+      "verb": 4,
+      "target": 33
+    },
+    {
+      "source": 31,
+      "verb": 5,
+      "target": 31
+    },
+    {
+      "source": 31,
+      "verb": 6,
+      "target": 31
+    },
+    {
+      "source": 32,
+      "verb": 1,
+      "target": 32
+    },
+    {
+      "source": 32,
+      "verb": 2,
+      "target": 32
+    },
+    {
+      "source": 32,
+      "verb": 3,
+      "target": 36
+    },
+    {
+      "source": 32,
+      "verb": 4,
+      "target": 32
+    },
+    {
+      "source": 32,
+      "verb": 5,
+      "target": 32
+    },
+    {
+      "source": 32,
+      "verb": 6,
+      "target": 32
+    },
+    {
+      "source": 33,
+      "verb": 1,
+      "target": 33
+    },
+    {
+      "source": 33,
+      "verb": 2,
+      "target": 33
+    },
+    {
+      "source": 33,
+      "verb": 3,
+      "target": 33
+    },
+    {
+      "source": 33,
+      "verb": 4,
+      "target": 33
+    },
+    {
+      "source": 33,
+      "verb": 5,
+      "target": 34
+    },
+    {
+      "source": 33,
+      "verb": 6,
+      "target": 35
+    },
+    {
+      "source": 34,
+      "verb": 1,
+      "target": 34
+    },
+    {
+      "source": 34,
+      "verb": 2,
+      "target": 34
+    },
+    {
+      "source": 34,
+      "verb": 3,
+      "target": 34
+    },
+    {
+      "source": 34,
+      "verb": 4,
+      "target": 34
+    },
+    {
+      "source": 34,
+      "verb": 5,
+      "target": 34
+    },
+    {
+      "source": 34,
+      "verb": 6,
+      "target": 50
+    },
+    {
+      "source": 35,
+      "verb": 1,
+      "target": 35
+    },
+    {
+      "source": 35,
+      "verb": 2,
+      "target": 35
+    },
+    {
+      "source": 35,
+      "verb": 3,
+      "target": 35
+    },
+    {
+      "source": 35,
+      "verb": 4,
+      "target": 35
+    },
+    {
+      "source": 35,
+      "verb": 5,
+      "target": 29
+    },
+    {
+      "source": 35,
+      "verb": 6,
+      "target": 35
+    },
+    {
+      "source": 36,
+      "verb": 1,
+      "target": 36
+    },
+    {
+      "source": 36,
+      "verb": 2,
+      "target": 36
+    },
+    {
+      "source": 36,
+      "verb": 3,
+      "target": 36
+    },
+    {
+      "source": 36,
+      "verb": 4,
+      "target": 36
+    },
+    {
+      "source": 36,
+      "verb": 5,
+      "target": 37
+    },
+    {
+      "source": 36,
+      "verb": 6,
+      "target": 38
+    },
+    {
+      "source": 37,
+      "verb": 1,
+      "target": 37
+    },
+    {
+      "source": 37,
+      "verb": 2,
+      "target": 37
+    },
+    {
+      "source": 37,
+      "verb": 3,
+      "target": 37
+    },
+    {
+      "source": 37,
+      "verb": 4,
+      "target": 37
+    },
+    {
+      "source": 37,
+      "verb": 5,
+      "target": 37
+    },
+    {
+      "source": 37,
+      "verb": 6,
+      "target": 52
+    },
+    {
+      "source": 38,
+      "verb": 1,
+      "target": 38
+    },
+    {
+      "source": 38,
+      "verb": 2,
+      "target": 38
+    },
+    {
+      "source": 38,
+      "verb": 3,
+      "target": 38
+    },
+    {
+      "source": 38,
+      "verb": 4,
+      "target": 38
+    },
+    {
+      "source": 38,
+      "verb": 5,
+      "target": 51
+    },
+    {
+      "source": 38,
+      "verb": 6,
+      "target": 38
+    },
+    {
+      "source": 39,
+      "verb": 3,
+      "target": 40
+    },
+    {
+      "source": 39,
+      "verb": 5,
+      "target": 55
+    },
+    {
+      "source": 40,
+      "verb": 4,
+      "target": 39
+    },
+    {
+      "source": 40,
+      "verb": 6,
+      "target": 54
+    },
+    {
+      "source": 41,
+      "verb": 4,
+      "target": 42
+    },
+    {
+      "source": 42,
+      "verb": 3,
+      "target": 41
+    },
+    {
+      "source": 42,
+      "verb": 4,
+      "target": 43
+    },
+    {
+      "source": 43,
+      "verb": 3,
+      "target": 42
+    },
+    {
+      "source": 43,
+      "verb": 5,
+      "target": 56
+    },
+    {
+      "source": 44,
+      "verb": 4,
+      "target": 45
+    },
+    {
+      "source": 44,
+      "verb": 5,
+      "target": 51
+    },
+    {
+      "source": 44,
+      "verb": 6,
+      "target": 46
+    },
+    {
+      "source": 45,
+      "verb": 3,
+      "target": 44
+    },
+    {
+      "source": 45,
+      "verb": 6,
+      "target": 47
+    },
+    {
+      "source": 46,
+      "verb": 2,
+      "target": 47
+    },
+    {
+      "source": 46,
+      "verb": 5,
+      "target": 44
+    },
+    {
+      "source": 47,
+      "verb": 3,
+      "target": 46
+    },
+    {
+      "source": 47,
+      "verb": 5,
+      "target": 45
+    },
+    {
+      "source": 48,
+      "verb": 4,
+      "target": 28
+    },
+    {
+      "source": 49,
+      "verb": 4,
+      "target": 50
+    },
+    {
+      "source": 50,
+      "verb": 3,
+      "target": 49
+    },
+    {
+      "source": 50,
+      "verb": 5,
+      "target": 30
+    },
+    {
+      "source": 51,
+      "verb": 4,
+      "target": 53
+    },
+    {
+      "source": 51,
+      "verb": 5,
+      "target": 44
+    },
+    {
+      "source": 51,
+      "verb": 6,
+      "target": 30
+    },
+    {
+      "source": 52,
+      "verb": 5,
+      "target": 31
+    },
+    {
+      "source": 53,
+      "verb": 2,
+      "target": 54
+    },
+    {
+      "source": 53,
+      "verb": 3,
+      "target": 51
+    },
+    {
+      "source": 54,
+      "verb": 1,
+      "target": 53
+    },
+    {
+      "source": 54,
+      "verb": 2,
+      "target": 55
+    },
+    {
+      "source": 54,
+      "verb": 5,
+      "target": 40
+    },
+    {
+      "source": 55,
+      "verb": 1,
+      "target": 54
+    },
+    {
+      "source": 55,
+      "verb": 2,
+      "target": 56
+    },
+    {
+      "source": 55,
+      "verb": 6,
+      "target": 39
+    },
+    {
+      "source": 56,
+      "verb": 1,
+      "target": 55
+    },
+    {
+      "source": 56,
+      "verb": 6,
+      "target": 43
+    },
+    {
+      "source": 57,
+      "verb": 4,
+      "target": 21
+    },
+    {
+      "source": 57,
+      "verb": 5,
+      "target": 19
+    }
+  ],
+  "objects": [
+    {
+      "id": 0,
+      "name": "A LIT LAMP",
+      "place": 252
+    },
+    {
+      "id": 1,
+      "name": "A STICK",
+      "place": 252
+    },
+    {
+      "id": 2,
+      "name": "A ROCK",
+      "place": 2
+    },
+    {
+      "id": 3,
+      "name": "A KEY",
+      "place": 6
+    },
+    {
+      "id": 4,
+      "name": "A MAGIC BLANKET",
+      "place": 5
+    },
+    {
+      "id": 5,
+      "name": "A HIEROGLYPHIC TRANSLATOR",
+      "place": 9
+    },
+    {
+      "id": 6,
+      "name": "A LADDER",
+      "place": 10
+    },
+    {
+      "id": 7,
+      "name": "A GOLD BAR",
+      "place": 15
+    },
+    {
+      "id": 8,
+      "name": "A ROPE",
+      "place": 16
+    },
+    {
+      "id": 9,
+      "name": "A SMALL BOAT",
+      "place": 18
+    },
+    {
+      "id": 10,
+      "name": "A BLUE STONE",
+      "place": 24
+    },
+    {
+      "id": 11,
+      "name": "A RED STONE",
+      "place": 26
+    },
+    {
+      "id": 12,
+      "name": "A CHISEL",
+      "place": 11
+    },
+    {
+      "id": 13,
+      "name": "A SKULL",
+      "place": 27
+    },
+    {
+      "id": 14,
+      "name": "A MAGIC RING EMBEDDED IN FLINT",
+      "place": 20
+    },
+    {
+      "id": 15,
+      "name": "SOME SCALES",
+      "place": 21
+    },
+    {
+      "id": 16,
+      "name": "BLUE POWDER",
+      "place": 252
+    },
+    {
+      "id": 17,
+      "name": "RED POWDER",
+      "place": 252
+    },
+    {
+      "id": 18,
+      "name": "A MATCH",
+      "place": 12
+    },
+    {
+      "id": 19,
+      "name": "A DAMP MATCH",
+      "place": 252
+    },
+    {
+      "id": 20,
+      "name": "A USED MATCH",
+      "place": 252
+    },
+    {
+      "id": 21,
+      "name": "A LAMP",
+      "place": 20
+    },
+    {
+      "id": 22,
+      "name": "A BRANCH",
+      "place": 0
+    },
+    {
+      "id": 23,
+      "name": "A SIGN",
+      "place": 22
+    },
+    {
+      "id": 24,
+      "name": "A NOTICE",
+      "place": 26
+    },
+    {
+      "id": 25,
+      "name": "FIRE",
+      "place": 20
+    },
+    {
+      "id": 26,
+      "name": "SMOULDERING ASHES",
+      "place": 252
+    },
+    {
+      "id": 27,
+      "name": "OARS",
+      "place": 252
+    },
+    {
+      "id": 28,
+      "name": "*** GOLDEN EAGLE ***",
+      "place": 27
+    },
+    {
+      "id": 29,
+      "name": "*** GOLDEN CHANDELIERS ***",
+      "place": 28
+    },
+    {
+      "id": 30,
+      "name": "*** GOLD COINS ***",
+      "place": 49
+    },
+    {
+      "id": 31,
+      "name": "*** GOLDEN BRUSH ***",
+      "place": 52
+    },
+    {
+      "id": 32,
+      "name": "*** GOLDEN STATUE ***",
+      "place": 53
+    },
+    {
+      "id": 33,
+      "name": "*** GOLDEN BOWL ***",
+      "place": 54
+    },
+    {
+      "id": 34,
+      "name": "*** GOLDEN THUMBSCREW ***",
+      "place": 39
+    },
+    {
+      "id": 35,
+      "name": "*** GOLDEN KNIVES ***",
+      "place": 43
+    },
+    {
+      "id": 36,
+      "name": "AN OPEN DOOR UP THE STEPS",
+      "place": 252
+    },
+    {
+      "id": 37,
+      "name": "A BROKEN LOCK",
+      "place": 252
+    },
+    {
+      "id": 38,
+      "name": "AN OPEN DOOR",
+      "place": 252
+    },
+    {
+      "id": 39,
+      "name": "A DOOR WITH A LARGE LOCK",
+      "place": 2
+    },
+    {
+      "id": 40,
+      "name": "A WINDOW",
+      "place": 2
+    },
+    {
+      "id": 41,
+      "name": "OARS",
+      "place": 57
+    },
+    {
+      "id": 42,
+      "name": "A MAGIC RING",
+      "place": 252
+    },
+    {
+      "id": 43,
+      "name": "SLIGHTLY OPEN PANELS",
+      "place": 23
+    },
+    {
+      "id": 44,
+      "name": "HOLE IN PANELS",
+      "place": 252
+    },
+    {
+      "id": 45,
+      "name": "LOCKED PANEL",
+      "place": 23
+    },
+    {
+      "id": 46,
+      "name": "OPENING IN A PANEL",
+      "place": 252
+    },
+    {
+      "id": 47,
+      "name": "A LARGE LATCHED DOOR UP THE STEPS",
+      "place": 1
+    }
+  ],
+  "vocabulary": [
+    {
+      "key": "UP  ",
+      "code": 1
+    },
+    {
+      "key": "U   ",
+      "code": 1
+    },
+    {
+      "key": "DOWN",
+      "code": 2
+    },
+    {
+      "key": "D   ",
+      "code": 2
+    },
+    {
+      "key": "NORT",
+      "code": 3
+    },
+    {
+      "key": "N   ",
+      "code": 3
+    },
+    {
+      "key": "SOUT",
+      "code": 4
+    },
+    {
+      "key": "S   ",
+      "code": 4
+    },
+    {
+      "key": "EAST",
+      "code": 5
+    },
+    {
+      "key": "E   ",
+      "code": 5
+    },
+    {
+      "key": "WEST",
+      "code": 6
+    },
+    {
+      "key": "W   ",
+      "code": 6
+    },
+    {
+      "key": "GET ",
+      "code": 13
+    },
+    {
+      "key": "PICK",
+      "code": 13
+    },
+    {
+      "key": "TAKE",
+      "code": 13
+    },
+    {
+      "key": "DROP",
+      "code": 14
+    },
+    {
+      "key": "PUT ",
+      "code": 14
+    },
+    {
+      "key": "BRAN",
+      "code": 15
+    },
+    {
+      "key": "REMO",
+      "code": 16
+    },
+    {
+      "key": "STRI",
+      "code": 16
+    },
+    {
+      "key": "CUT ",
+      "code": 16
+    },
+    {
+      "key": "LEAV",
+      "code": 17
+    },
+    {
+      "key": "FOLI",
+      "code": 17
+    },
+    {
+      "key": "CLIM",
+      "code": 18
+    },
+    {
+      "key": "BOAR",
+      "code": 18
+    },
+    {
+      "key": "STEP",
+      "code": 19
+    },
+    {
+      "key": "ROCK",
+      "code": 20
+    },
+    {
+      "key": "HIT ",
+      "code": 21
+    },
+    {
+      "key": "KNOC",
+      "code": 21
+    },
+    {
+      "key": "LATC",
+      "code": 22
+    },
+    {
+      "key": "USE ",
+      "code": 23
+    },
+    {
+      "key": "WITH",
+      "code": 23
+    },
+    {
+      "key": "BREA",
+      "code": 24
+    },
+    {
+      "key": "SMAS",
+      "code": 24
+    },
+    {
+      "key": "LOCK",
+      "code": 25
+    },
+    {
+      "key": "MAGI",
+      "code": 26
+    },
+    {
+      "key": "BLAN",
+      "code": 26
+    },
+    {
+      "key": "KEY ",
+      "code": 27
+    },
+    {
+      "key": "HYRO",
+      "code": 28
+    },
+    {
+      "key": "SPAN",
+      "code": 28
+    },
+    {
+      "key": "TRAN",
+      "code": 28
+    },
+    {
+      "key": "LADD",
+      "code": 29
+    },
+    {
+      "key": "CHIS",
+      "code": 30
+    },
+    {
+      "key": "GOLD",
+      "code": 31
+    },
+    {
+      "key": "BAR ",
+      "code": 31
+    },
+    {
+      "key": "ROPE",
+      "code": 32
+    },
+    {
+      "key": "BOAT",
+      "code": 33
+    },
+    {
+      "key": "BLUE",
+      "code": 34
+    },
+    {
+      "key": "RED ",
+      "code": 35
+    },
+    {
+      "key": "SKUL",
+      "code": 36
+    },
+    {
+      "key": "RING",
+      "code": 37
+    },
+    {
+      "key": "FLIN",
+      "code": 37
+    },
+    {
+      "key": "SCAL",
+      "code": 38
+    },
+    {
+      "key": "MATC",
+      "code": 39
+    },
+    {
+      "key": "LAMP",
+      "code": 40
+    },
+    {
+      "key": "READ",
+      "code": 41
+    },
+    {
+      "key": "SIGN",
+      "code": 42
+    },
+    {
+      "key": "NOTI",
+      "code": 43
+    },
+    {
+      "key": "SMOT",
+      "code": 44
+    },
+    {
+      "key": "FIRE",
+      "code": 45
+    },
+    {
+      "key": "FLAM",
+      "code": 45
+    },
+    {
+      "key": "SMOU",
+      "code": 46
+    },
+    {
+      "key": "ASHE",
+      "code": 46
+    },
+    {
+      "key": "OARS",
+      "code": 47
+    },
+    {
+      "key": "INVE",
+      "code": 48
+    },
+    {
+      "key": "I   ",
+      "code": 48
+    },
+    {
+      "key": "HELP",
+      "code": 49
+    },
+    {
+      "key": "QUIT",
+      "code": 50
+    },
+    {
+      "key": "STOP",
+      "code": 50
+    },
+    {
+      "key": "ABOR",
+      "code": 50
+    },
+    {
+      "key": "YES ",
+      "code": 51
+    },
+    {
+      "key": "NO  ",
+      "code": 52
+    },
+    {
+      "key": "Y   ",
+      "code": 51
+    },
+    {
+      "key": "STRI",
+      "code": 53
+    },
+    {
+      "key": "LIGH",
+      "code": 54
+    },
+    {
+      "key": "LOOK",
+      "code": 55
+    },
+    {
+      "key": "ROW ",
+      "code": 56
+    },
+    {
+      "key": "TUNN",
+      "code": 56
+    },
+    {
+      "key": "PUSH",
+      "code": 57
+    },
+    {
+      "key": "MIRR",
+      "code": 58
+    },
+    {
+      "key": "KICK",
+      "code": 59
+    },
+    {
+      "key": "BOOT",
+      "code": 59
+    },
+    {
+      "key": "STIC",
+      "code": 15
+    },
+    {
+      "key": "DOOR",
+      "code": 61
+    },
+    {
+      "key": "WALL",
+      "code": 62
+    },
+    {
+      "key": "LEDG",
+      "code": 63
+    },
+    {
+      "key": "POOL",
+      "code": 64
+    },
+    {
+      "key": "LAKE",
+      "code": 64
+    },
+    {
+      "key": "SWIM",
+      "code": 65
+    },
+    {
+      "key": "ONBO",
+      "code": 66
+    },
+    {
+      "key": "KILL",
+      "code": 67
+    },
+    {
+      "key": "ASCE",
+      "code": 68
+    },
+    {
+      "key": "STAI",
+      "code": 69
+    },
+    {
+      "key": "OPEN",
+      "code": 70
+    },
+    {
+      "key": "PRIS",
+      "code": 70
+    },
+    {
+      "key": "UNLO",
+      "code": 70
+    },
+    {
+      "key": "PANE",
+      "code": 71
+    },
+    {
+      "key": "HOLE",
+      "code": 72
+    },
+    {
+      "key": "ENTE",
+      "code": 73
+    },
+    {
+      "key": "WALK",
+      "code": 73
+    },
+    {
+      "key": "PORT",
+      "code": 74
+    },
+    {
+      "key": "EAGL",
+      "code": 75
+    },
+    {
+      "key": "CHAN",
+      "code": 76
+    },
+    {
+      "key": "COIN",
+      "code": 77
+    },
+    {
+      "key": "BRUS",
+      "code": 78
+    },
+    {
+      "key": "THUM",
+      "code": 79
+    },
+    {
+      "key": "SCRE",
+      "code": 79
+    },
+    {
+      "key": "KNIF",
+      "code": 80
+    },
+    {
+      "key": "STAT",
+      "code": 81
+    },
+    {
+      "key": "BOWL",
+      "code": 82
+    },
+    {
+      "key": "REDE",
+      "code": 83
+    },
+    {
+      "key": "R   ",
+      "code": 83
+    },
+    {
+      "key": "SCOR",
+      "code": 84
+    },
+    {
+      "key": "WIND",
+      "code": 85
+    }
+  ],
+  "messages": [
+    {
+      "id": 0,
+      "text": "IT IS HEAVY WITH LOTS OF LEAVES"
+    },
+    {
+      "id": 1,
+      "text": "HOW?"
+    },
+    {
+      "id": 2,
+      "text": "WITH WHAT?"
+    },
+    {
+      "id": 3,
+      "text": "YOU HAVE ALREADY BROKEN IT"
+    },
+    {
+      "id": 4,
+      "text": "FOR WHAT?"
+    },
+    {
+      "id": 5,
+      "text": "THE BRICKS LOOK LOOSE"
+    },
+    {
+      "id": 6,
+      "text": "OUCH... THAT HURT MY FOOT"
+    },
+    {
+      "id": 7,
+      "text": "I CAN SEE A HIGH LEDGE"
+    },
+    {
+      "id": 8,
+      "text": "A BOAT IS BOBBING ON THE RIPPLES"
+    },
+    {
+      "id": 9,
+      "text": "IT IS BEAUTIFUL WITH A SMALL\nBOAT FLOATING ON IT"
+    },
+    {
+      "id": 10,
+      "text": "I CAN NOT SWIM AND AM NOW WET"
+    },
+    {
+      "id": 11,
+      "text": "IN WHICH DIRECTION?"
+    },
+    {
+      "id": 12,
+      "text": "IT FLARES UP... THEN FIZZLES OUT"
+    },
+    {
+      "id": 13,
+      "text": "THE FIRE BLOCKS THE STAIRCASE"
+    },
+    {
+      "id": 14,
+      "text": "THE SIGN SAYS: DO NOT DESCEND"
+    },
+    {
+      "id": 15,
+      "text": "THE NOTICE SAYS:DEATH AWAITS ALL\nWHO GO WEST UNPREPARED"
+    },
+    {
+      "id": 16,
+      "text": "I CANT READ IT....\nIT IS WRITTEN IN SPANISH.."
+    },
+    {
+      "id": 17,
+      "text": "I DONT UNDERSTAND...\nIT IS HIEROGLYPHICS.."
+    },
+    {
+      "id": 18,
+      "text": "I SEE A LIGHT OVERHEAD"
+    },
+    {
+      "id": 19,
+      "text": "YOU ARE NOT CARRYING THE \nCORRECT POSSESSIONS"
+    },
+    {
+      "id": 20,
+      "text": "I CAN SEE MY REFLECTION"
+    },
+    {
+      "id": 21,
+      "text": "REMOVE SOME OF THE PANELS"
+    },
+    {
+      "id": 22,
+      "text": "LOOK UP"
+    },
+    {
+      "id": 23,
+      "text": "USE SOMETHING TO CLIMB UP"
+    },
+    {
+      "id": 24,
+      "text": "TRY EXAMINING THINGS"
+    },
+    {
+      "id": 25,
+      "text": "I HAVE BEEN ROASTED ALIVE...\nTHIS IS THE END OF THE ADVENTURE"
+    },
+    {
+      "id": 26,
+      "text": "THE DUNGEON HAS FILLED WITH SAND\nYOU HAVE SUFFOCATED..\nTHIS IS THE END OF THE ADVENTURE"
+    },
+    {
+      "id": 27,
+      "text": "CONGRATULATIONS\n\nYOU HAVE SUCCESFULLY COMPLETED \n\nTHIS ADVENTURE. WELL DONE\nNOW TRY OUR NEXT ONE:ADVENTURE C\n** ALIEN SPACE SHIP ADVENTURE **"
+    },
+    {
+      "id": 28,
+      "text": "HOW DO I CROSS THE POOL?"
+    },
+    {
+      "id": 29,
+      "text": "TRY CLIMBING ONBOARD FIRST"
+    },
+    {
+      "id": 30,
+      "text": "I SEE NOTHING SPECIAL"
+    },
+    {
+      "id": 31,
+      "text": "NO.. I AM NOT A VANDAL"
+    },
+    {
+      "id": 32,
+      "text": "I SEE A MESSAGE SAYING\nFOR HIGH QUALITY SOFTWARE FOR YOUR COMPUTER YOU SHOULD GO TO\nARTIC COMPUTING\nMAIN STREET\nBRANDESBURTON\nOR ANY GOOD COMPUTER STORE"
+    },
+    {
+      "id": 33,
+      "text": "I AM UP TO MY NECK IN SAND..."
+    },
+    {
+      "id": 34,
+      "text": "MY SKIN IS BLISTERING..."
+    },
+    {
+      "id": 35,
+      "text": "TARZAN WOULD WEAR THEM SO WHY NOT STRIP THEM?"
+    },
+    {
+      "id": 36,
+      "text": "PUT THE FIRE OUT!"
+    },
+    {
+      "id": 37,
+      "text": "THE LATCH IS VERY FRAGILE"
+    },
+    {
+      "id": 38,
+      "text": "THE LOCK IS VERY WEAK"
+    }
+  ],
+  "automatic_rules": [
+    {
+      "address": "8210",
+      "verb": 255,
+      "noun": 255,
+      "conditions": [
+        0,
+        26,
+        6,
+        5,
+        1
+      ],
+      "actions": [
+        5,
+        26,
+        19,
+        14,
+        14,
+        0
+      ]
+    },
+    {
+      "address": "8216",
+      "verb": 255,
+      "noun": 255,
+      "conditions": [
+        0,
+        20,
+        6,
+        2,
+        1
+      ],
+      "actions": [
+        5,
+        26,
+        19,
+        14,
+        14,
+        0
+      ]
+    },
+    {
+      "address": "821c",
+      "verb": 255,
+      "noun": 255,
+      "conditions": [
+        0,
+        0,
+        6,
+        6,
+        255
+      ],
+      "actions": [
+        5,
+        27,
+        19,
+        14,
+        14,
+        0
+      ]
+    },
+    {
+      "address": "8222",
+      "verb": 255,
+      "noun": 255,
+      "conditions": [],
+      "actions": [
+        21,
+        0
+      ]
+    }
+  ],
+  "command_rules": [
+    {
+      "address": "8250",
+      "verb": 13,
+      "noun": 15,
+      "conditions": [
+        1,
+        22
+      ],
+      "actions": [
+        5,
+        0,
+        7,
+        0
+      ]
+    },
+    {
+      "address": "8256",
+      "verb": 48,
+      "noun": 255,
+      "conditions": [],
+      "actions": [
+        0,
+        0
+      ]
+    },
+    {
+      "address": "825c",
+      "verb": 16,
+      "noun": 17,
+      "conditions": [
+        1,
+        22
+      ],
+      "actions": [
+        17,
+        22,
+        16,
+        1,
+        13,
+        0
+      ]
+    },
+    {
+      "address": "8262",
+      "verb": 13,
+      "noun": 15,
+      "conditions": [
+        1,
+        1
+      ],
+      "actions": [
+        2,
+        1,
+        13,
+        0
+      ]
+    },
+    {
+      "address": "8268",
+      "verb": 13,
+      "noun": 15,
+      "conditions": [
+        1,
+        1
+      ],
+      "actions": [
+        2,
+        1,
+        13,
+        0
+      ]
+    },
+    {
+      "address": "826e",
+      "verb": 15,
+      "noun": 255,
+      "conditions": [
+        1,
+        1
+      ],
+      "actions": [
+        2,
+        1,
+        13,
+        0
+      ]
+    },
+    {
+      "address": "8274",
+      "verb": 18,
+      "noun": 19,
+      "conditions": [
+        0,
+        1,
+        1,
+        36
+      ],
+      "actions": [
+        8,
+        2,
+        6,
+        0
+      ]
+    },
+    {
+      "address": "827a",
+      "verb": 1,
+      "noun": 255,
+      "conditions": [
+        0,
+        1,
+        1,
+        36
+      ],
+      "actions": [
+        8,
+        2,
+        6,
+        0
+      ]
+    },
+    {
+      "address": "8280",
+      "verb": 21,
+      "noun": 22,
+      "conditions": [
+        0,
+        1,
+        3,
+        36
+      ],
+      "actions": [
+        5,
+        2,
+        7,
+        0
+      ]
+    },
+    {
+      "address": "8286",
+      "verb": 24,
+      "noun": 22,
+      "conditions": [
+        0,
+        1,
+        3,
+        36
+      ],
+      "actions": [
+        5,
+        1,
+        7,
+        0
+      ]
+    },
+    {
+      "address": "828c",
+      "verb": 23,
+      "noun": 15,
+      "conditions": [
+        0,
+        1,
+        3,
+        36,
+        1,
+        1
+      ],
+      "actions": [
+        16,
+        36,
+        17,
+        47,
+        6,
+        0
+      ]
+    },
+    {
+      "address": "8292",
+      "verb": 13,
+      "noun": 20,
+      "conditions": [
+        1,
+        2
+      ],
+      "actions": [
+        2,
+        2,
+        13,
+        0
+      ]
+    },
+    {
+      "address": "8298",
+      "verb": 24,
+      "noun": 25,
+      "conditions": [
+        0,
+        2,
+        3,
+        37
+      ],
+      "actions": [
+        5,
+        2,
+        7,
+        0
+      ]
+    },
+    {
+      "address": "829e",
+      "verb": 23,
+      "noun": 25,
+      "conditions": [
+        0,
+        2,
+        3,
+        37
+      ],
+      "actions": [
+        5,
+        1,
+        6,
+        0
+      ]
+    },
+    {
+      "address": "82a4",
+      "verb": 23,
+      "noun": 20,
+      "conditions": [
+        0,
+        2,
+        3,
+        37
+      ],
+      "actions": [
+        16,
+        37,
+        16,
+        38,
+        17,
+        39,
+        6,
+        0
+      ]
+    },
+    {
+      "address": "82aa",
+      "verb": 24,
+      "noun": 25,
+      "conditions": [
+        1,
+        37,
+        0,
+        2
+      ],
+      "actions": [
+        5,
+        3,
+        7,
+        0
+      ]
+    },
+    {
+      "address": "82b0",
+      "verb": 21,
+      "noun": 25,
+      "conditions": [
+        1,
+        37,
+        0,
+        2
+      ],
+      "actions": [
+        5,
+        3,
+        7,
+        0
+      ]
+    },
+    {
+      "address": "82b6",
+      "verb": 23,
+      "noun": 20,
+      "conditions": [
+        0,
+        2,
+        1,
+        37
+      ],
+      "actions": [
+        5,
+        4,
+        6,
+        0
+      ]
+    },
+    {
+      "address": "82bc",
+      "verb": 61,
+      "noun": 255,
+      "conditions": [
+        0,
+        2,
+        1,
+        38
+      ],
+      "actions": [
+        8,
+        3,
+        6,
+        0
+      ]
+    },
+    {
+      "address": "82c2",
+      "verb": 13,
+      "noun": 26,
+      "conditions": [
+        1,
+        4
+      ],
+      "actions": [
+        2,
+        4,
+        13,
+        0
+      ]
+    },
+    {
+      "address": "82c8",
+      "verb": 13,
+      "noun": 27,
+      "conditions": [
+        1,
+        3
+      ],
+      "actions": [
+        2,
+        3,
+        13,
+        0
+      ]
+    },
+    {
+      "address": "82ce",
+      "verb": 55,
+      "noun": 62,
+      "conditions": [
+        0,
+        6
+      ],
+      "actions": [
+        5,
+        5,
+        7,
+        0
+      ]
+    },
+    {
+      "address": "82d4",
+      "verb": 21,
+      "noun": 62,
+      "conditions": [
+        0,
+        6
+      ],
+      "actions": [
+        5,
+        2,
+        7,
+        0
+      ]
+    },
+    {
+      "address": "82da",
+      "verb": 24,
+      "noun": 62,
+      "conditions": [
+        0,
+        6
+      ],
+      "actions": [
+        5,
+        1,
+        7,
+        0
+      ]
+    },
+    {
+      "address": "82e0",
+      "verb": 23,
+      "noun": 30,
+      "conditions": [
+        0,
+        6,
+        1,
+        12
+      ],
+      "actions": [
+        8,
+        27,
+        6,
+        0
+      ]
+    },
+    {
+      "address": "82e6",
+      "verb": 59,
+      "noun": 255,
+      "conditions": [],
+      "actions": [
+        5,
+        6,
+        7,
+        0
+      ]
+    },
+    {
+      "address": "82ec",
+      "verb": 13,
+      "noun": 28,
+      "conditions": [
+        1,
+        5
+      ],
+      "actions": [
+        2,
+        5,
+        13,
+        0
+      ]
+    },
+    {
+      "address": "82f2",
+      "verb": 13,
+      "noun": 31,
+      "conditions": [
+        1,
+        7
+      ],
+      "actions": [
+        2,
+        7,
+        13,
+        0
+      ]
+    },
+    {
+      "address": "82f8",
+      "verb": 13,
+      "noun": 29,
+      "conditions": [
+        1,
+        6
+      ],
+      "actions": [
+        2,
+        6,
+        13,
+        0
+      ]
+    },
+    {
+      "address": "82fe",
+      "verb": 13,
+      "noun": 30,
+      "conditions": [
+        1,
+        12
+      ],
+      "actions": [
+        2,
+        12,
+        13,
+        0
+      ]
+    },
+    {
+      "address": "8304",
+      "verb": 13,
+      "noun": 39,
+      "conditions": [
+        1,
+        18
+      ],
+      "actions": [
+        2,
+        18,
+        13,
+        0
+      ]
+    },
+    {
+      "address": "830a",
+      "verb": 55,
+      "noun": 1,
+      "conditions": [
+        0,
+        14
+      ],
+      "actions": [
+        5,
+        7,
+        7,
+        0
+      ]
+    },
+    {
+      "address": "8310",
+      "verb": 18,
+      "noun": 63,
+      "conditions": [
+        0,
+        14
+      ],
+      "actions": [
+        5,
+        1,
+        7,
+        0
+      ]
+    },
+    {
+      "address": "8316",
+      "verb": 18,
+      "noun": 1,
+      "conditions": [
+        0,
+        14
+      ],
+      "actions": [
+        5,
+        1,
+        7,
+        0
+      ]
+    },
+    {
+      "address": "831c",
+      "verb": 23,
+      "noun": 29,
+      "conditions": [
+        0,
+        14,
+        1,
+        6
+      ],
+      "actions": [
+        3,
+        6,
+        8,
+        15,
+        6,
+        0
+      ]
+    },
+    {
+      "address": "8322",
+      "verb": 13,
+      "noun": 32,
+      "conditions": [
+        1,
+        8
+      ],
+      "actions": [
+        2,
+        8,
+        13,
+        0
+      ]
+    },
+    {
+      "address": "8328",
+      "verb": 55,
+      "noun": 33,
+      "conditions": [
+        1,
+        9
+      ],
+      "actions": [
+        5,
+        8,
+        7,
+        0
+      ]
+    },
+    {
+      "address": "832e",
+      "verb": 55,
+      "noun": 64,
+      "conditions": [
+        0,
+        18
+      ],
+      "actions": [
+        5,
+        9,
+        7,
+        0
+      ]
+    },
+    {
+      "address": "8334",
+      "verb": 65,
+      "noun": 255,
+      "conditions": [
+        0,
+        18,
+        8,
+        18
+      ],
+      "actions": [
+        5,
+        10,
+        11,
+        18,
+        7,
+        0
+      ]
+    },
+    {
+      "address": "833a",
+      "verb": 18,
+      "noun": 33,
+      "conditions": [
+        0,
+        18
+      ],
+      "actions": [
+        8,
+        57,
+        6,
+        0
+      ]
+    },
+    {
+      "address": "8340",
+      "verb": 18,
+      "noun": 66,
+      "conditions": [
+        0,
+        18
+      ],
+      "actions": [
+        8,
+        57,
+        6,
+        0
+      ]
+    },
+    {
+      "address": "8346",
+      "verb": 13,
+      "noun": 47,
+      "conditions": [
+        1,
+        41
+      ],
+      "actions": [
+        2,
+        41,
+        13,
+        0
+      ]
+    },
+    {
+      "address": "834c",
+      "verb": 56,
+      "noun": 255,
+      "conditions": [
+        0,
+        57,
+        1,
+        41
+      ],
+      "actions": [
+        5,
+        11,
+        7,
+        0
+      ]
+    },
+    {
+      "address": "8352",
+      "verb": 13,
+      "noun": 37,
+      "conditions": [
+        1,
+        14
+      ],
+      "actions": [
+        2,
+        14,
+        13,
+        0
+      ]
+    },
+    {
+      "address": "8358",
+      "verb": 13,
+      "noun": 37,
+      "conditions": [
+        1,
+        42
+      ],
+      "actions": [
+        2,
+        42,
+        13,
+        0
+      ]
+    },
+    {
+      "address": "835e",
+      "verb": 13,
+      "noun": 40,
+      "conditions": [
+        1,
+        21
+      ],
+      "actions": [
+        2,
+        21,
+        13,
+        0
+      ]
+    },
+    {
+      "address": "8364",
+      "verb": 13,
+      "noun": 40,
+      "conditions": [
+        1,
+        0
+      ],
+      "actions": [
+        2,
+        22,
+        13,
+        0
+      ]
+    },
+    {
+      "address": "836a",
+      "verb": 44,
+      "noun": 45,
+      "conditions": [
+        1,
+        25,
+        1,
+        4
+      ],
+      "actions": [
+        17,
+        25,
+        16,
+        26,
+        9,
+        0,
+        15,
+        2,
+        0,
+        6,
+        0
+      ]
+    },
+    {
+      "address": "8370",
+      "verb": 67,
+      "noun": 45,
+      "conditions": [
+        1,
+        25,
+        1,
+        4
+      ],
+      "actions": [
+        17,
+        25,
+        16,
+        26,
+        9,
+        0,
+        15,
+        2,
+        0,
+        6,
+        0
+      ]
+    },
+    {
+      "address": "8376",
+      "verb": 54,
+      "noun": 40,
+      "conditions": [
+        1,
+        21
+      ],
+      "actions": [
+        5,
+        2,
+        7,
+        0
+      ]
+    },
+    {
+      "address": "837c",
+      "verb": 23,
+      "noun": 39,
+      "conditions": [
+        8,
+        21,
+        8,
+        18
+      ],
+      "actions": [
+        3,
+        21,
+        3,
+        18,
+        17,
+        21,
+        17,
+        18,
+        16,
+        0,
+        16,
+        20,
+        2,
+        0,
+        10,
+        0,
+        6,
+        0
+      ]
+    },
+    {
+      "address": "8382",
+      "verb": 54,
+      "noun": 39,
+      "conditions": [
+        1,
+        18
+      ],
+      "actions": [
+        5,
+        12,
+        17,
+        18,
+        16,
+        20,
+        7,
+        0
+      ]
+    },
+    {
+      "address": "8388",
+      "verb": 53,
+      "noun": 39,
+      "conditions": [
+        1,
+        18
+      ],
+      "actions": [
+        5,
+        12,
+        17,
+        18,
+        16,
+        20,
+        7,
+        0
+      ]
+    },
+    {
+      "address": "838e",
+      "verb": 18,
+      "noun": 69,
+      "conditions": [
+        0,
+        20,
+        3,
+        25,
+        1,
+        0
+      ],
+      "actions": [
+        8,
+        7,
+        10,
+        0,
+        6,
+        0
+      ]
+    },
+    {
+      "address": "8394",
+      "verb": 68,
+      "noun": 69,
+      "conditions": [
+        0,
+        20,
+        3,
+        25,
+        1,
+        0
+      ],
+      "actions": [
+        8,
+        7,
+        10,
+        0,
+        6,
+        0
+      ]
+    },
+    {
+      "address": "839a",
+      "verb": 18,
+      "noun": 69,
+      "conditions": [
+        0,
+        20,
+        1,
+        25
+      ],
+      "actions": [
+        5,
+        13,
+        7,
+        0
+      ]
+    },
+    {
+      "address": "83a0",
+      "verb": 68,
+      "noun": 69,
+      "conditions": [
+        0,
+        20,
+        1,
+        25
+      ],
+      "actions": [
+        5,
+        13,
+        7,
+        0
+      ]
+    },
+    {
+      "address": "83a6",
+      "verb": 24,
+      "noun": 37,
+      "conditions": [
+        1,
+        14
+      ],
+      "actions": [
+        5,
+        2,
+        7,
+        0
+      ]
+    },
+    {
+      "address": "83ac",
+      "verb": 16,
+      "noun": 37,
+      "conditions": [
+        1,
+        14
+      ],
+      "actions": [
+        5,
+        2,
+        7,
+        0
+      ]
+    },
+    {
+      "address": "83b2",
+      "verb": 23,
+      "noun": 30,
+      "conditions": [
+        8,
+        14,
+        8,
+        12
+      ],
+      "actions": [
+        3,
+        14,
+        17,
+        14,
+        16,
+        42,
+        2,
+        42,
+        13,
+        0
+      ]
+    },
+    {
+      "address": "83b8",
+      "verb": 13,
+      "noun": 38,
+      "conditions": [
+        1,
+        15
+      ],
+      "actions": [
+        2,
+        15,
+        13,
+        0
+      ]
+    },
+    {
+      "address": "83be",
+      "verb": 55,
+      "noun": 42,
+      "conditions": [
+        0,
+        22,
+        1,
+        5
+      ],
+      "actions": [
+        5,
+        14,
+        7,
+        0
+      ]
+    },
+    {
+      "address": "83c4",
+      "verb": 41,
+      "noun": 42,
+      "conditions": [
+        0,
+        22,
+        1,
+        5
+      ],
+      "actions": [
+        5,
+        14,
+        7,
+        0
+      ]
+    },
+    {
+      "address": "83ca",
+      "verb": 70,
+      "noun": 71,
+      "conditions": [
+        0,
+        23,
+        1,
+        43
+      ],
+      "actions": [
+        5,
+        1,
+        7,
+        0
+      ]
+    },
+    {
+      "address": "83d0",
+      "verb": 23,
+      "noun": 31,
+      "conditions": [
+        0,
+        23,
+        1,
+        43
+      ],
+      "actions": [
+        17,
+        43,
+        16,
+        44,
+        6,
+        0
+      ]
+    },
+    {
+      "address": "83d6",
+      "verb": 19,
+      "noun": 71,
+      "conditions": [
+        0,
+        23,
+        1,
+        44
+      ],
+      "actions": [
+        8,
+        24,
+        6,
+        0
+      ]
+    },
+    {
+      "address": "83dc",
+      "verb": 18,
+      "noun": 71,
+      "conditions": [
+        0,
+        23,
+        1,
+        44
+      ],
+      "actions": [
+        8,
+        24,
+        6,
+        0
+      ]
+    },
+    {
+      "address": "83e2",
+      "verb": 19,
+      "noun": 72,
+      "conditions": [
+        0,
+        23,
+        1,
+        44
+      ],
+      "actions": [
+        8,
+        24,
+        6,
+        0
+      ]
+    },
+    {
+      "address": "83e8",
+      "verb": 18,
+      "noun": 72,
+      "conditions": [
+        0,
+        23,
+        1,
+        44
+      ],
+      "actions": [
+        8,
+        24,
+        6,
+        0
+      ]
+    },
+    {
+      "address": "83ee",
+      "verb": 70,
+      "noun": 71,
+      "conditions": [
+        0,
+        23,
+        1,
+        45
+      ],
+      "actions": [
+        5,
+        2,
+        7,
+        0
+      ]
+    },
+    {
+      "address": "83f4",
+      "verb": 23,
+      "noun": 27,
+      "conditions": [
+        0,
+        23,
+        1,
+        45
+      ],
+      "actions": [
+        17,
+        45,
+        16,
+        46,
+        6,
+        0
+      ]
+    },
+    {
+      "address": "83fa",
+      "verb": 19,
+      "noun": 70,
+      "conditions": [
+        0,
+        23,
+        1,
+        46
+      ],
+      "actions": [
+        8,
+        26,
+        6,
+        0
+      ]
+    },
+    {
+      "address": "8400",
+      "verb": 70,
+      "noun": 255,
+      "conditions": [
+        0,
+        23,
+        1,
+        46
+      ],
+      "actions": [
+        8,
+        26,
+        6,
+        0
+      ]
+    },
+    {
+      "address": "8406",
+      "verb": 73,
+      "noun": 70,
+      "conditions": [
+        0,
+        23,
+        1,
+        46
+      ],
+      "actions": [
+        8,
+        26,
+        6,
+        0
+      ]
+    },
+    {
+      "address": "840c",
+      "verb": 59,
+      "noun": 71,
+      "conditions": [
+        0,
+        23
+      ],
+      "actions": [
+        5,
+        6,
+        7,
+        0
+      ]
+    },
+    {
+      "address": "8412",
+      "verb": 13,
+      "noun": 34,
+      "conditions": [
+        1,
+        10
+      ],
+      "actions": [
+        2,
+        10,
+        13,
+        0
+      ]
+    },
+    {
+      "address": "8418",
+      "verb": 13,
+      "noun": 35,
+      "conditions": [
+        1,
+        11
+      ],
+      "actions": [
+        2,
+        11,
+        13,
+        0
+      ]
+    },
+    {
+      "address": "841e",
+      "verb": 55,
+      "noun": 43,
+      "conditions": [
+        0,
+        26,
+        1,
+        5
+      ],
+      "actions": [
+        5,
+        15,
+        7,
+        0
+      ]
+    },
+    {
+      "address": "8424",
+      "verb": 41,
+      "noun": 43,
+      "conditions": [
+        0,
+        26,
+        1,
+        5
+      ],
+      "actions": [
+        5,
+        15,
+        7,
+        0
+      ]
+    },
+    {
+      "address": "842a",
+      "verb": 55,
+      "noun": 42,
+      "conditions": [
+        0,
+        22,
+        3,
+        5
+      ],
+      "actions": [
+        5,
+        16,
+        7,
+        0
+      ]
+    },
+    {
+      "address": "8430",
+      "verb": 41,
+      "noun": 42,
+      "conditions": [
+        0,
+        22,
+        3,
+        5
+      ],
+      "actions": [
+        5,
+        16,
+        7,
+        0
+      ]
+    },
+    {
+      "address": "8436",
+      "verb": 55,
+      "noun": 43,
+      "conditions": [
+        0,
+        26,
+        3,
+        5
+      ],
+      "actions": [
+        5,
+        17,
+        7,
+        0
+      ]
+    },
+    {
+      "address": "843c",
+      "verb": 41,
+      "noun": 43,
+      "conditions": [
+        0,
+        26,
+        3,
+        5
+      ],
+      "actions": [
+        5,
+        17,
+        7,
+        0
+      ]
+    },
+    {
+      "address": "8442",
+      "verb": 18,
+      "noun": 1,
+      "conditions": [
+        0,
+        25
+      ],
+      "actions": [
+        5,
+        1,
+        7,
+        0
+      ]
+    },
+    {
+      "address": "8448",
+      "verb": 68,
+      "noun": 255,
+      "conditions": [
+        0,
+        25
+      ],
+      "actions": [
+        5,
+        1,
+        7,
+        0
+      ]
+    },
+    {
+      "address": "844e",
+      "verb": 23,
+      "noun": 32,
+      "conditions": [
+        0,
+        25,
+        8,
+        8
+      ],
+      "actions": [
+        8,
+        22,
+        15,
+        5,
+        0,
+        6,
+        0
+      ]
+    },
+    {
+      "address": "8454",
+      "verb": 55,
+      "noun": 1,
+      "conditions": [
+        0,
+        25
+      ],
+      "actions": [
+        5,
+        18,
+        7,
+        0
+      ]
+    },
+    {
+      "address": "845a",
+      "verb": 73,
+      "noun": 74,
+      "conditions": [
+        0,
+        25,
+        8,
+        10,
+        8,
+        42
+      ],
+      "actions": [
+        8,
+        48,
+        15,
+        5,
+        0,
+        9,
+        6,
+        6,
+        0
+      ]
+    },
+    {
+      "address": "8460",
+      "verb": 2,
+      "noun": 255,
+      "conditions": [
+        0,
+        25,
+        8,
+        10,
+        8,
+        42
+      ],
+      "actions": [
+        8,
+        48,
+        15,
+        5,
+        0,
+        9,
+        6,
+        6,
+        0
+      ]
+    },
+    {
+      "address": "8466",
+      "verb": 2,
+      "noun": 255,
+      "conditions": [
+        0,
+        25
+      ],
+      "actions": [
+        5,
+        19,
+        7,
+        0
+      ]
+    },
+    {
+      "address": "846c",
+      "verb": 5,
+      "noun": 255,
+      "conditions": [
+        0,
+        23,
+        3,
+        42
+      ],
+      "actions": [
+        5,
+        19,
+        7,
+        0
+      ]
+    },
+    {
+      "address": "8472",
+      "verb": 1,
+      "noun": 255,
+      "conditions": [
+        0,
+        48,
+        8,
+        10,
+        8,
+        42
+      ],
+      "actions": [
+        8,
+        25,
+        6,
+        0
+      ]
+    },
+    {
+      "address": "8478",
+      "verb": 1,
+      "noun": 255,
+      "conditions": [
+        0,
+        48
+      ],
+      "actions": [
+        5,
+        19,
+        7,
+        0
+      ]
+    },
+    {
+      "address": "847e",
+      "verb": 1,
+      "noun": 255,
+      "conditions": [
+        0,
+        48
+      ],
+      "actions": [
+        5,
+        19,
+        7,
+        0
+      ]
+    },
+    {
+      "address": "8484",
+      "verb": 73,
+      "noun": 74,
+      "conditions": [
+        0,
+        48,
+        8,
+        10,
+        8,
+        42
+      ],
+      "actions": [
+        8,
+        25,
+        15,
+        5,
+        7,
+        6,
+        0
+      ]
+    },
+    {
+      "address": "848a",
+      "verb": 6,
+      "noun": 255,
+      "conditions": [
+        0,
+        48,
+        8,
+        11
+      ],
+      "actions": [
+        8,
+        27,
+        6,
+        0
+      ]
+    },
+    {
+      "address": "8490",
+      "verb": 6,
+      "noun": 255,
+      "conditions": [
+        0,
+        48
+      ],
+      "actions": [
+        5,
+        19,
+        7,
+        0
+      ]
+    },
+    {
+      "address": "8496",
+      "verb": 13,
+      "noun": 75,
+      "conditions": [
+        1,
+        28
+      ],
+      "actions": [
+        2,
+        28,
+        18,
+        0,
+        37,
+        13,
+        0
+      ]
+    },
+    {
+      "address": "849c",
+      "verb": 13,
+      "noun": 76,
+      "conditions": [
+        1,
+        29
+      ],
+      "actions": [
+        2,
+        29,
+        18,
+        0,
+        2,
+        13,
+        0
+      ]
+    },
+    {
+      "address": "84a2",
+      "verb": 13,
+      "noun": 77,
+      "conditions": [
+        1,
+        30
+      ],
+      "actions": [
+        2,
+        30,
+        18,
+        0,
+        5,
+        13,
+        0
+      ]
+    },
+    {
+      "address": "84a8",
+      "verb": 13,
+      "noun": 78,
+      "conditions": [
+        1,
+        31
+      ],
+      "actions": [
+        2,
+        31,
+        18,
+        0,
+        5,
+        13,
+        0
+      ]
+    },
+    {
+      "address": "84ae",
+      "verb": 13,
+      "noun": 79,
+      "conditions": [
+        1,
+        34
+      ],
+      "actions": [
+        2,
+        34,
+        18,
+        0,
+        1,
+        13,
+        0
+      ]
+    },
+    {
+      "address": "84b4",
+      "verb": 13,
+      "noun": 80,
+      "conditions": [
+        1,
+        35
+      ],
+      "actions": [
+        2,
+        35,
+        18,
+        0,
+        1,
+        13,
+        0
+      ]
+    },
+    {
+      "address": "84ba",
+      "verb": 13,
+      "noun": 81,
+      "conditions": [
+        1,
+        32
+      ],
+      "actions": [
+        2,
+        32,
+        18,
+        0,
+        4,
+        13,
+        0
+      ]
+    },
+    {
+      "address": "84c0",
+      "verb": 13,
+      "noun": 82,
+      "conditions": [
+        1,
+        33
+      ],
+      "actions": [
+        2,
+        33,
+        18,
+        80,
+        1,
+        13,
+        0
+      ]
+    },
+    {
+      "address": "84c6",
+      "verb": 57,
+      "noun": 58,
+      "conditions": [
+        0,
+        52
+      ],
+      "actions": [
+        8,
+        46,
+        6,
+        0
+      ]
+    },
+    {
+      "address": "84cc",
+      "verb": 55,
+      "noun": 58,
+      "conditions": [
+        0,
+        52
+      ],
+      "actions": [
+        5,
+        20,
+        7,
+        0
+      ]
+    },
+    {
+      "address": "84d2",
+      "verb": 14,
+      "noun": 75,
+      "conditions": [
+        8,
+        28
+      ],
+      "actions": [
+        3,
+        28,
+        18,
+        0,
+        117,
+        13,
+        0
+      ]
+    },
+    {
+      "address": "84d8",
+      "verb": 14,
+      "noun": 76,
+      "conditions": [
+        8,
+        29
+      ],
+      "actions": [
+        3,
+        29,
+        18,
+        0,
+        152,
+        13,
+        0
+      ]
+    },
+    {
+      "address": "84de",
+      "verb": 14,
+      "noun": 77,
+      "conditions": [
+        8,
+        30
+      ],
+      "actions": [
+        3,
+        30,
+        18,
+        0,
+        149,
+        13,
+        0
+      ]
+    },
+    {
+      "address": "84e4",
+      "verb": 14,
+      "noun": 78,
+      "conditions": [
+        8,
+        31
+      ],
+      "actions": [
+        3,
+        31,
+        18,
+        0,
+        149,
+        13,
+        0
+      ]
+    },
+    {
+      "address": "84ea",
+      "verb": 14,
+      "noun": 79,
+      "conditions": [
+        8,
+        34
+      ],
+      "actions": [
+        3,
+        34,
+        18,
+        0,
+        153,
+        13,
+        0
+      ]
+    },
+    {
+      "address": "84f0",
+      "verb": 14,
+      "noun": 80,
+      "conditions": [
+        8,
+        35
+      ],
+      "actions": [
+        3,
+        35,
+        18,
+        0,
+        150,
+        13,
+        0
+      ]
+    },
+    {
+      "address": "84f6",
+      "verb": 14,
+      "noun": 81,
+      "conditions": [
+        8,
+        32
+      ],
+      "actions": [
+        3,
+        32,
+        18,
+        0,
+        150,
+        13,
+        0
+      ]
+    },
+    {
+      "address": "84fc",
+      "verb": 14,
+      "noun": 82,
+      "conditions": [
+        8,
+        33
+      ],
+      "actions": [
+        3,
+        33,
+        18,
+        80,
+        152,
+        13,
+        0
+      ]
+    },
+    {
+      "address": "8502",
+      "verb": 14,
+      "noun": 34,
+      "conditions": [
+        8,
+        10
+      ],
+      "actions": [
+        3,
+        10,
+        17,
+        10,
+        16,
+        16,
+        13,
+        0
+      ]
+    },
+    {
+      "address": "8508",
+      "verb": 14,
+      "noun": 35,
+      "conditions": [
+        8,
+        11
+      ],
+      "actions": [
+        3,
+        11,
+        17,
+        11,
+        16,
+        17,
+        13,
+        0
+      ]
+    },
+    {
+      "address": "850e",
+      "verb": 14,
+      "noun": 38,
+      "conditions": [
+        8,
+        15
+      ],
+      "actions": [
+        3,
+        15,
+        13,
+        0
+      ]
+    },
+    {
+      "address": "8514",
+      "verb": 14,
+      "noun": 37,
+      "conditions": [
+        8,
+        14
+      ],
+      "actions": [
+        3,
+        14,
+        13,
+        0
+      ]
+    },
+    {
+      "address": "851a",
+      "verb": 14,
+      "noun": 40,
+      "conditions": [
+        8,
+        21
+      ],
+      "actions": [
+        3,
+        21,
+        13,
+        0
+      ]
+    },
+    {
+      "address": "8520",
+      "verb": 14,
+      "noun": 37,
+      "conditions": [
+        8,
+        42
+      ],
+      "actions": [
+        3,
+        42,
+        13,
+        0
+      ]
+    },
+    {
+      "address": "8526",
+      "verb": 14,
+      "noun": 40,
+      "conditions": [
+        8,
+        0
+      ],
+      "actions": [
+        3,
+        0,
+        17,
+        0,
+        16,
+        21,
+        13,
+        0
+      ]
+    },
+    {
+      "address": "852c",
+      "verb": 14,
+      "noun": 32,
+      "conditions": [
+        8,
+        8
+      ],
+      "actions": [
+        3,
+        8,
+        13,
+        0
+      ]
+    },
+    {
+      "address": "8532",
+      "verb": 14,
+      "noun": 28,
+      "conditions": [
+        8,
+        5
+      ],
+      "actions": [
+        3,
+        5,
+        13,
+        0
+      ]
+    },
+    {
+      "address": "8538",
+      "verb": 14,
+      "noun": 31,
+      "conditions": [
+        8,
+        7
+      ],
+      "actions": [
+        3,
+        7,
+        13,
+        0
+      ]
+    },
+    {
+      "address": "853e",
+      "verb": 14,
+      "noun": 29,
+      "conditions": [
+        8,
+        6
+      ],
+      "actions": [
+        3,
+        6,
+        13,
+        0
+      ]
+    },
+    {
+      "address": "8544",
+      "verb": 14,
+      "noun": 30,
+      "conditions": [
+        8,
+        12
+      ],
+      "actions": [
+        3,
+        12,
+        13,
+        0
+      ]
+    },
+    {
+      "address": "854a",
+      "verb": 14,
+      "noun": 39,
+      "conditions": [
+        8,
+        18
+      ],
+      "actions": [
+        3,
+        18,
+        13,
+        0
+      ]
+    },
+    {
+      "address": "8550",
+      "verb": 14,
+      "noun": 39,
+      "conditions": [
+        8,
+        19
+      ],
+      "actions": [
+        3,
+        19,
+        13,
+        0
+      ]
+    },
+    {
+      "address": "8556",
+      "verb": 14,
+      "noun": 39,
+      "conditions": [
+        8,
+        20
+      ],
+      "actions": [
+        3,
+        20,
+        13,
+        0
+      ]
+    },
+    {
+      "address": "855c",
+      "verb": 13,
+      "noun": 39,
+      "conditions": [
+        1,
+        19
+      ],
+      "actions": [
+        2,
+        19,
+        13,
+        0
+      ]
+    },
+    {
+      "address": "8562",
+      "verb": 13,
+      "noun": 39,
+      "conditions": [
+        1,
+        20
+      ],
+      "actions": [
+        2,
+        10,
+        13,
+        0
+      ]
+    },
+    {
+      "address": "8568",
+      "verb": 14,
+      "noun": 26,
+      "conditions": [
+        8,
+        4
+      ],
+      "actions": [
+        3,
+        4,
+        13,
+        0
+      ]
+    },
+    {
+      "address": "856e",
+      "verb": 14,
+      "noun": 27,
+      "conditions": [
+        8,
+        3
+      ],
+      "actions": [
+        3,
+        3,
+        13,
+        0
+      ]
+    },
+    {
+      "address": "8574",
+      "verb": 14,
+      "noun": 20,
+      "conditions": [
+        8,
+        2
+      ],
+      "actions": [
+        3,
+        2,
+        13,
+        0
+      ]
+    },
+    {
+      "address": "857a",
+      "verb": 14,
+      "noun": 15,
+      "conditions": [
+        8,
+        1
+      ],
+      "actions": [
+        3,
+        1,
+        13,
+        0
+      ]
+    },
+    {
+      "address": "8580",
+      "verb": 14,
+      "noun": 15,
+      "conditions": [
+        8,
+        1
+      ],
+      "actions": [
+        3,
+        1,
+        13,
+        0
+      ]
+    },
+    {
+      "address": "8586",
+      "verb": 14,
+      "noun": 15,
+      "conditions": [
+        8,
+        22
+      ],
+      "actions": [
+        3,
+        0,
+        13,
+        0
+      ]
+    },
+    {
+      "address": "858c",
+      "verb": 83,
+      "noun": 255,
+      "conditions": [],
+      "actions": [
+        6,
+        0
+      ]
+    },
+    {
+      "address": "8592",
+      "verb": 49,
+      "noun": 255,
+      "conditions": [
+        0,
+        23
+      ],
+      "actions": [
+        5,
+        21,
+        7,
+        0
+      ]
+    },
+    {
+      "address": "8598",
+      "verb": 84,
+      "noun": 255,
+      "conditions": [],
+      "actions": [
+        19,
+        7,
+        19,
+        14,
+        5,
+        22,
+        7,
+        0
+      ]
+    },
+    {
+      "address": "859e",
+      "verb": 50,
+      "noun": 255,
+      "conditions": [],
+      "actions": [
+        19,
+        14,
+        5,
+        22,
+        7,
+        0
+      ]
+    },
+    {
+      "address": "85a4",
+      "verb": 49,
+      "noun": 255,
+      "conditions": [
+        0,
+        25
+      ],
+      "actions": [
+        5,
+        22,
+        7,
+        0
+      ]
+    },
+    {
+      "address": "85aa",
+      "verb": 49,
+      "noun": 255,
+      "conditions": [
+        0,
+        14
+      ],
+      "actions": [
+        5,
+        23,
+        7,
+        0
+      ]
+    },
+    {
+      "address": "85b0",
+      "verb": 6,
+      "noun": 255,
+      "conditions": [
+        0,
+        57
+      ],
+      "actions": [
+        8,
+        20,
+        15,
+        2,
+        9,
+        6,
+        0
+      ]
+    },
+    {
+      "address": "85b6",
+      "verb": 6,
+      "noun": 255,
+      "conditions": [
+        0,
+        26
+      ],
+      "actions": [
+        8,
+        25,
+        15,
+        5,
+        7,
+        6,
+        0
+      ]
+    },
+    {
+      "address": "85bc",
+      "verb": 2,
+      "noun": 255,
+      "conditions": [
+        0,
+        22
+      ],
+      "actions": [
+        8,
+        25,
+        15,
+        5,
+        7,
+        6,
+        0
+      ]
+    },
+    {
+      "address": "85c2",
+      "verb": 4,
+      "noun": 255,
+      "conditions": [
+        0,
+        18
+      ],
+      "actions": [
+        5,
+        28,
+        7,
+        0
+      ]
+    },
+    {
+      "address": "85c8",
+      "verb": 5,
+      "noun": 255,
+      "conditions": [
+        0,
+        18
+      ],
+      "actions": [
+        5,
+        28,
+        7,
+        0
+      ]
+    },
+    {
+      "address": "85ce",
+      "verb": 6,
+      "noun": 255,
+      "conditions": [
+        0,
+        18
+      ],
+      "actions": [
+        5,
+        28,
+        7,
+        0
+      ]
+    },
+    {
+      "address": "85d4",
+      "verb": 23,
+      "noun": 33,
+      "conditions": [
+        0,
+        18
+      ],
+      "actions": [
+        5,
+        29,
+        7,
+        0
+      ]
+    },
+    {
+      "address": "85da",
+      "verb": 55,
+      "noun": 85,
+      "conditions": [
+        0,
+        2
+      ],
+      "actions": [
+        5,
+        32,
+        7,
+        0
+      ]
+    },
+    {
+      "address": "85e0",
+      "verb": 65,
+      "noun": 255,
+      "conditions": [
+        0,
+        18
+      ],
+      "actions": [
+        5,
+        10,
+        7,
+        0
+      ]
+    },
+    {
+      "address": "85e6",
+      "verb": 56,
+      "noun": 33,
+      "conditions": [
+        0,
+        18
+      ],
+      "actions": [
+        5,
+        29,
+        7,
+        0
+      ]
+    },
+    {
+      "address": "85ec",
+      "verb": 1,
+      "noun": 255,
+      "conditions": [
+        0,
+        20,
+        3,
+        25
+      ],
+      "actions": [
+        8,
+        7,
+        6,
+        0
+      ]
+    },
+    {
+      "address": "85f2",
+      "verb": 1,
+      "noun": 255,
+      "conditions": [
+        0,
+        20,
+        1,
+        25
+      ],
+      "actions": [
+        5,
+        13,
+        7,
+        0
+      ]
+    },
+    {
+      "address": "85f8",
+      "verb": 24,
+      "noun": 85,
+      "conditions": [
+        1,
+        40
+      ],
+      "actions": [
+        5,
+        31,
+        7,
+        0
+      ]
+    },
+    {
+      "address": "85fe",
+      "verb": 49,
+      "noun": 255,
+      "conditions": [
+        0,
+        0
+      ],
+      "actions": [
+        5,
+        35,
+        7,
+        0
+      ]
+    },
+    {
+      "address": "8604",
+      "verb": 49,
+      "noun": 255,
+      "conditions": [
+        0,
+        20
+      ],
+      "actions": [
+        5,
+        36,
+        7,
+        0
+      ]
+    },
+    {
+      "address": "860a",
+      "verb": 55,
+      "noun": 255,
+      "conditions": [
+        0,
+        1
+      ],
+      "actions": [
+        5,
+        37,
+        7,
+        0
+      ]
+    },
+    {
+      "address": "8610",
+      "verb": 55,
+      "noun": 255,
+      "conditions": [
+        0,
+        2
+      ],
+      "actions": [
+        5,
+        38,
+        7,
+        0
+      ]
+    },
+    {
+      "address": "8616",
+      "verb": 49,
+      "noun": 255,
+      "conditions": [],
+      "actions": [
+        5,
+        24,
+        7,
+        0
+      ]
+    },
+    {
+      "address": "861c",
+      "verb": 49,
+      "noun": 255,
+      "conditions": [],
+      "actions": [
+        5,
+        30,
+        7,
+        0
+      ]
+    }
+  ]
+}

@@ -1,0 +1,7 @@
+treasure and escape: 72 commands; every room, score, register and object state matched the 6502 reference
+failed commands and parser: 12 commands; every room, score, register and object state matched the 6502 reference
+fire death: 40 commands; every room, score, register and object state matched the 6502 reference
+sand countdown: 26 commands; every room, score, register and object state matched the 6502 reference
+carrying limit: 20 commands; every room, score, register and object state matched the 6502 reference
+170 differential command checks passed. Release story also completed the winning route.
+Inform SAVE/RESTORE and UNDO: location, inventory, registers and score restored correctly.

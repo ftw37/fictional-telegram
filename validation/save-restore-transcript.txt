@@ -1,0 +1,51 @@
+Welcome to the Cheap Glk Implementation, library version 1.0.7.
+
+
+
+
+
+WELCOME TO ADVENTURE B: INCA CURSE
+
+In this adventure you find yourself in a South American jungle near an, as yet, undisturbed Inca temple. Inside this temple you will find lots of treasure. Your aim is to get out with as much treasure as you can.
+
+Beware, do not let greed be your downfall. Your adventure is complete when you have returned to the jungle clearing with treasure.
+
+Use the original short commands: NORTH, TAKE BRANCH, CUT LEAVES, WITH ROPE, LOOK DOOR, I, HELP, and R. SAVE and RESTORE use Inform saved games.
+
+I AM IN A JUNGLE CLEARING
+EXITS ARE SOUTH
+I CAN ALSO SEE:
+A BRANCH
+
+Inca Curse
+An Interactive Fiction by Artic Computing (recovered C64 edition)
+Release 1 / Serial number 261008 / Inform 7 v10.1.2
+
+> OK..
+PORTSTATE 0|0|0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,|252,0,2,6,5,9,10,15,16,18,24,26,11,27,20,21,252,252,12,252,252,20,252,22,26,20,252,252,27,28,49,52,53,54,39,43,252,252,252,2,2,57,252,23,252,23,252,1,|0
+
+> OK..
+PORTSTATE 0|0|0,1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,|252,254,2,6,5,9,10,15,16,18,24,26,11,27,20,21,252,252,12,252,252,20,252,22,26,20,252,252,27,28,49,52,53,54,39,43,252,252,252,2,2,57,252,23,252,23,252,1,|0
+
+> Enter saved game to store: Ok.
+
+> I AM ON THE TEMPLE STEPS
+EXITS ARE NORTH
+I CAN ALSO SEE:
+A LARGE LATCHED DOOR UP THE STEPS
+PORTSTATE 1|0|0,1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,|252,254,2,6,5,9,10,15,16,18,24,26,11,27,20,21,252,252,12,252,252,20,252,22,26,20,252,252,27,28,49,52,53,54,39,43,252,252,252,2,2,57,252,23,252,23,252,1,|0
+
+> OK..
+PORTSTATE 1|0|0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,|252,1,2,6,5,9,10,15,16,18,24,26,11,27,20,21,252,252,12,252,252,20,252,22,26,20,252,252,27,28,49,52,53,54,39,43,252,252,252,2,2,57,252,23,252,23,252,1,|0
+
+> Enter saved game to load: Ok.
+
+> I HAVE WITH ME THE FOLLOWING
+A STICK
+PORTSTATE 0|0|0,1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,|252,254,2,6,5,9,10,15,16,18,24,26,11,27,20,21,252,252,12,252,252,20,252,22,26,20,252,252,27,28,49,52,53,54,39,43,252,252,252,2,2,57,252,23,252,23,252,1,|0
+
+> I AM IN A JUNGLE CLEARING
+EXITS ARE SOUTH
+PORTSTATE 0|0|0,1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,|252,254,2,6,5,9,10,15,16,18,24,26,11,27,20,21,252,252,12,252,252,20,252,22,26,20,252,252,27,28,49,52,53,54,39,43,252,252,252,2,2,57,252,23,252,23,252,1,|0
+
+> Are you sure you want to quit? 
