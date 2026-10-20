@@ -1,5 +1,7 @@
 # Inca Curse — recovered Inform 7 edition
 
+**Space Invaders from the Internet Archive PET disk:** the new [browser port and source notes](archive-space-invaders/README.md) use the exact `SPACE INVADERS` executable from [this archive entry](https://archive.org/details/d64_petgame_space_invaders). Open [its browser page](archive-space-invaders/index.html), or download [the standalone ZIP](archive-space-invaders/Space-Invaders-Archive-Browser.zip), unzip it, and open `index.html`. This is a different release from Galaxy Invaders below.
+
 The repository also contains [Galaxy Invaders, the original PET arcade code on a 40-column browser screen](pet-galaxy-invaders/README.md). Download its [standalone browser ZIP](pet-galaxy-invaders/Galaxy-Invaders-Browser.zip), unzip it, and open `index.html`.
 
 This is a working, table-driven Inform 7 reconstruction of the game in

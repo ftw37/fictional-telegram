@@ -1,0 +1,7 @@
+{
+  "name": "archive-pet-space-invaders",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Original Internet Archive PET Space Invaders program in a browser",
+  "scripts": { "test": "node --test tests/game.test.js", "start": "node server.js" }
+}
