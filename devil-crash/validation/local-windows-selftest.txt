@@ -1,0 +1,6 @@
+frames=1800
+video_callbacks=1800
+audio_callbacks=1800
+video_fnv64=b0b1283c528accec
+audio_fnv64=35754a014bf0e099
+native_instructions=20712440

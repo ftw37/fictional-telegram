@@ -1,0 +1,15 @@
+game.md
+source/build/
+source/runtime/core/m68k/devil_native.h
+.zig-cache*/
+.zig-local-cache/
+tmp/
+*.exe
+*.dll
+*.pdb
+*.o
+*.obj
+*.lib
+__pycache__/
+build-log.txt
+selftest.txt
