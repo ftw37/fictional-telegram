@@ -1,3 +1,37 @@
+diff --git a/shadps4-arm64-main/src/common/bit_array.h b/shadps4-arm64-main/src/common/bit_array.h
+index 0ab4643..85a6fc6 100644
+--- a/shadps4-arm64-main/src/common/bit_array.h
++++ b/shadps4-arm64-main/src/common/bit_array.h
+@@ -207,6 +207,29 @@ public:
+         return !None();
+     }
+ 
++    // Test a half-open range without allocating and clearing a temporary bitset.
++    inline constexpr bool Any(size_t start, size_t end) const {
++        if (start >= end || end > N) {
++            return false;
++        }
++        const size_t first_word = start / BITS_PER_WORD;
++        const size_t last_word = (end - 1) / BITS_PER_WORD;
++        const u64 first_mask = ~0ULL << (start % BITS_PER_WORD);
++        const u64 last_mask = ~0ULL >> (BITS_PER_WORD - 1 - (end - 1) % BITS_PER_WORD);
++        if (first_word == last_word) {
++            return (data[first_word] & first_mask & last_mask) != 0;
++        }
++        if ((data[first_word] & first_mask) || (data[last_word] & last_mask)) {
++            return true;
++        }
++        for (size_t i = first_word + 1; i < last_word; ++i) {
++            if (data[i]) {
++                return true;
++            }
++        }
++        return false;
++    }
++
+     Range FirstRangeFrom(size_t start) const {
+         if (start >= N) {
+             return {N, N};
 diff --git a/shadps4-arm64-main/src/core/libraries/audio3d/audio3d.cpp b/shadps4-arm64-main/src/core/libraries/audio3d/audio3d.cpp
 index 75ab1b5..fb2d55b 100644
 --- a/shadps4-arm64-main/src/core/libraries/audio3d/audio3d.cpp
@@ -898,7 +932,7 @@ index 0000000..420c9c2
 +
 +} // namespace Libraries::Ngs2::Waveform
 diff --git a/shadps4-arm64-main/src/core/libraries/videoout/driver.cpp b/shadps4-arm64-main/src/core/libraries/videoout/driver.cpp
-index edef78b..837c9d4 100644
+index edef78b..389275a 100644
 --- a/shadps4-arm64-main/src/core/libraries/videoout/driver.cpp
 +++ b/shadps4-arm64-main/src/core/libraries/videoout/driver.cpp
 @@ -211,8 +211,9 @@ int VideoOutDriver::RegisterBuffers(VideoOutPort* port, s32 startIndex, void* co
@@ -961,6 +995,41 @@ index edef78b..837c9d4 100644
      if (!frames) {
          // Same as regular flips: retry once the current graphics task yields.
          liverpool->EnqueueCommand([=, this] {
+@@ -721,8 +744,22 @@ private:
+ void VideoOutDriver::PresentThread(std::stop_token token) {
+     // A connected headset drives the output at its panel's refresh rate instead of the TV's.
+     const auto& vr = Core::Vr::Runtime::Instance();
+-    const u32 vblank_frequency = vr.IsHeadsetConnected() ? vr.GetConfig().refresh_rate
+-                                                         : EmulatorSettings.GetVblankFrequency();
++    // Private preview-only pacing experiment. A higher vblank rate is not evidence
++    // of correct game timing or of frames delivered to a physical headset.
++    const u32 test_vblank_frequency = [&] {
++        const char* compat = std::getenv("SHADPS4_HTL_COMPAT");
++        const char* openxr = std::getenv("SHADPS4_OPENXR");
++        const char* test = std::getenv("SHADPS4_HTL_TEST_VBLANK_HZ");
++        if (!compat || compat[0] != '1' || !openxr || openxr[0] != '0' || !test) return 0u;
++        const int rate = std::atoi(test);
++        return rate == 120 || rate == 180 || rate == 240 ? static_cast<u32>(rate) : 0u;
++    }();
++    const u32 vblank_frequency = test_vblank_frequency ? test_vblank_frequency :
++        vr.IsHeadsetConnected() ? vr.GetConfig().refresh_rate : EmulatorSettings.GetVblankFrequency();
++    if (test_vblank_frequency) {
++        LOG_WARNING(Lib_VideoOut, "Experimental HTL preview vblank: {} Hz; game timing unverified",
++                    test_vblank_frequency);
++    }
+     const std::chrono::nanoseconds vblank_period(1000000000 / vblank_frequency);
+     u32 social_vblank_accumulator = 0;
+ 
+@@ -799,7 +836,8 @@ void VideoOutDriver::PresentThread(std::stop_token token) {
+ 
+     while (!token.stop_requested()) {
+         if (precise_pacing) {
+-            const float rate = vr.HeadsetRefreshRate();
++            const float rate = test_vblank_frequency ? static_cast<float>(test_vblank_frequency) :
++                                                     vr.HeadsetRefreshRate();
+             if (rate >= 30.0f && rate <= 400.0f) {
+                 timer.SetInterval(std::chrono::nanoseconds{
+                     static_cast<s64>(1e9 / (static_cast<double>(rate) * LooksPerRefresh))});
 diff --git a/shadps4-arm64-main/src/core/libraries/videoout/video_out.h b/shadps4-arm64-main/src/core/libraries/videoout/video_out.h
 index cf31621..4b18f3c 100644
 --- a/shadps4-arm64-main/src/core/libraries/videoout/video_out.h
@@ -1096,19 +1165,22 @@ index eee2ee4..884ace9 100644
      if (VirtualQuery(reinterpret_cast<const void*>(context.Rsp), &stack, sizeof(stack)) == 0 ||
 diff --git a/shadps4-arm64-main/src/core/vr/htl_diagnostics.h b/shadps4-arm64-main/src/core/vr/htl_diagnostics.h
 new file mode 100644
-index 0000000..6abcc94
+index 0000000..987c493
 --- /dev/null
 +++ b/shadps4-arm64-main/src/core/vr/htl_diagnostics.h
-@@ -0,0 +1,31 @@
+@@ -0,0 +1,39 @@
 +// SPDX-License-Identifier: GPL-2.0-or-later
 +#pragma once
 +#include <atomic>
 +#include <chrono>
 +#include <cstdlib>
 +#include <filesystem>
++#include <fstream>
++#include <string>
 +namespace Core::Vr {
 +inline std::atomic_bool htl_sync_gpu{}, htl_sync_frame{}, htl_snapshot_constants{};
 +inline std::atomic_bool htl_gpu_barrier{};
++inline std::atomic_int htl_barrier_mode{};
 +inline void PollHtlDiagnostics() {
 +    static const bool enabled = std::getenv("SHADPS4_HTL_COMPAT") != nullptr;
 +    if (!enabled)
@@ -1125,6 +1197,11 @@ index 0000000..6abcc94
 +    const char* gpu_barrier = std::getenv("SHADPS4_HTL_GPU_BARRIER");
 +    htl_gpu_barrier = (gpu_barrier && gpu_barrier[0] == '1') ||
 +                      std::filesystem::exists("user/htl-gpu-barrier", error);
++    const char* configured_mode = std::getenv("SHADPS4_HTL_BARRIER_MODE");
++    std::string mode = configured_mode ? configured_mode : "broad";
++    if (std::ifstream file{"user/htl-barrier-mode"}; file) file >> mode;
++    htl_barrier_mode = mode == "compute" ? 1 : mode == "pass" ? 2 :
++                       mode == "pipeline" ? 3 : mode == "state" ? 4 : 0;
 +    const char* frame_sync = std::getenv("SHADPS4_HTL_FRAME_SYNC");
 +    htl_sync_frame = (frame_sync && frame_sync[0] == '1') ||
 +                     std::filesystem::exists("user/htl-sync-frame", error);
@@ -1384,6 +1461,20 @@ index 74526c6..b5280f3 100644
      bool is_shown{};
      bool is_open{true};
  };
+diff --git a/shadps4-arm64-main/src/video_core/buffer_cache/region_manager.h b/shadps4-arm64-main/src/video_core/buffer_cache/region_manager.h
+index a8dea17..a4a6ea6 100644
+--- a/shadps4-arm64-main/src/video_core/buffer_cache/region_manager.h
++++ b/shadps4-arm64-main/src/video_core/buffer_cache/region_manager.h
+@@ -161,8 +161,7 @@ public:
+         }
+ 
+         const RegionBits& bits = GetRegionBits<type>();
+-        RegionBits test(bits, start_page, end_page);
+-        return test.Any();
++        return bits.Any(start_page, end_page);
+     }
+ 
+     /// Whether any page of the region is marked as modified by the GPU. Most regions never
 diff --git a/shadps4-arm64-main/src/video_core/host_shaders/post_process.frag b/shadps4-arm64-main/src/video_core/host_shaders/post_process.frag
 index c291f79..62695f1 100644
 --- a/shadps4-arm64-main/src/video_core/host_shaders/post_process.frag
@@ -1832,7 +1923,7 @@ index 2be4125..739d30a 100644
  
      /// Hands a frame made by PrepareHmdFrame to the VR host. Returns false for a frame that is
 diff --git a/shadps4-arm64-main/src/video_core/renderer_vulkan/vk_rasterizer.cpp b/shadps4-arm64-main/src/video_core/renderer_vulkan/vk_rasterizer.cpp
-index 7a284db..3497a9e 100644
+index 7a284db..27c5856 100644
 --- a/shadps4-arm64-main/src/video_core/renderer_vulkan/vk_rasterizer.cpp
 +++ b/shadps4-arm64-main/src/video_core/renderer_vulkan/vk_rasterizer.cpp
 @@ -1,3 +1,4 @@
@@ -1848,15 +1939,38 @@ index 7a284db..3497a9e 100644
  
  #include <vk_mem_alloc.h>
  #include "video_core/texture_cache/image_view.h"
-@@ -88,6 +90,21 @@ static bool TraceDraw() {
+@@ -88,6 +90,44 @@ static bool TraceDraw() {
      return g_draw_trace_budget.fetch_sub(1) > 0;
  }
  
-+static void ApplyHtlGpuBarrier(Scheduler& scheduler) {
++void Rasterizer::ApplyHtlGpuBarrier(const Pipeline* pipeline) {
 +    if (!Core::Vr::htl_gpu_barrier.load(std::memory_order_relaxed)) {
 +        return;
 +    }
++    const int mode = Core::Vr::htl_barrier_mode.load(std::memory_order_relaxed);
++    static int logged_mode = -1;
++    if (logged_mode != mode) {
++        logged_mode = mode;
++        LOG_INFO(Render_Vulkan, "HTL GPU dependency mode {}", mode);
++    }
++    if (mode == 3 || mode == 4) {
++        scheduler.ForgetGraphicsPipeline();
++        if (mode == 4) scheduler.GetDynamicState().Invalidate();
++        return;
++    }
++    if (mode == 1) {
++        bool writes = pipeline->IsCompute();
++        for (const auto* stage : pipeline->GetStages()) {
++            if (!stage) continue;
++            for (const auto& buffer : stage->buffers) writes |= buffer.is_written;
++            for (const auto& image : stage->images) writes |= image.is_written || image.is_atomic;
++        }
++        const bool needs_dependency = htl_memory_write_pending || writes;
++        htl_memory_write_pending = writes;
++        if (!needs_dependency) return;
++    }
 +    scheduler.EndRendering();
++    if (mode == 2) return;
 +    const vk::MemoryBarrier2 barrier{
 +        .srcStageMask = vk::PipelineStageFlagBits2::eAllCommands,
 +        .srcAccessMask = vk::AccessFlagBits2::eMemoryRead | vk::AccessFlagBits2::eMemoryWrite,
@@ -1870,11 +1984,11 @@ index 7a284db..3497a9e 100644
  void Rasterizer::CpSync() {
      scheduler.EndRendering();
      auto cmdbuf = scheduler.CommandBuffer();
-@@ -417,10 +434,14 @@ void Rasterizer::Draw(bool is_indexed, u32 index_offset) {
+@@ -417,10 +457,14 @@ void Rasterizer::Draw(bool is_indexed, u32 index_offset) {
          }
          return;
      }
-+    ApplyHtlGpuBarrier(scheduler);
++    ApplyHtlGpuBarrier(pipeline);
      const auto state = BeginRendering(pipeline);
      if (SkipSecondEye(state)) {
          ResetBindings();
@@ -1885,7 +1999,7 @@ index 7a284db..3497a9e 100644
          return;
      }
  
-@@ -473,6 +494,9 @@ void Rasterizer::Draw(bool is_indexed, u32 index_offset) {
+@@ -473,6 +517,9 @@ void Rasterizer::Draw(bool is_indexed, u32 index_offset) {
  
      ResetBindings();
      RetireIsolatedReadConstSnapshots();
@@ -1895,15 +2009,15 @@ index 7a284db..3497a9e 100644
  }
  
  bool Rasterizer::DrawsNothing(const GraphicsPipeline* pipeline) const {
-@@ -732,6 +756,7 @@ void Rasterizer::DrawIndirect(bool is_indexed, VAddr arg_address, u32 offset, u3
+@@ -732,6 +779,7 @@ void Rasterizer::DrawIndirect(bool is_indexed, VAddr arg_address, u32 offset, u3
      if (!BindResources(pipeline)) {
          return;
      }
-+    ApplyHtlGpuBarrier(scheduler);
++    ApplyHtlGpuBarrier(pipeline);
      const auto state = BeginRendering(pipeline);
  
      buffer_cache.BindVertexBuffers(*pipeline);
-@@ -786,6 +811,9 @@ void Rasterizer::DrawIndirect(bool is_indexed, VAddr arg_address, u32 offset, u3
+@@ -786,6 +834,9 @@ void Rasterizer::DrawIndirect(bool is_indexed, VAddr arg_address, u32 offset, u3
  
      ResetBindings();
      RetireIsolatedReadConstSnapshots();
@@ -1913,22 +2027,58 @@ index 7a284db..3497a9e 100644
  }
  
  void Rasterizer::DispatchDirect() {
-@@ -825,6 +853,7 @@ void Rasterizer::DispatchDirect() {
+@@ -811,6 +862,7 @@ void Rasterizer::DispatchDirect() {
+ 
+     const auto& cs = pipeline->GetStage(Shader::LogicalStage::Compute);
+     if (ExecuteShaderHLE(cs, liverpool->regs, cs_program, *this)) {
++        htl_memory_write_pending = true;
+         if (trace) {
+             LOG_INFO(Render_Vulkan, "TRACE   dispatch handled by shader HLE");
+         }
+@@ -825,6 +877,7 @@ void Rasterizer::DispatchDirect() {
      }
  
      scheduler.EndRendering();
-+    ApplyHtlGpuBarrier(scheduler);
++    ApplyHtlGpuBarrier(pipeline);
      pipeline->BindResources(set_writes, buffer_barriers, push_data);
  
      const auto cmdbuf = scheduler.CommandBuffer();
-@@ -860,6 +889,7 @@ void Rasterizer::DispatchIndirect(VAddr address, u32 offset, u32 size) {
+@@ -860,6 +913,7 @@ void Rasterizer::DispatchIndirect(VAddr address, u32 offset, u32 size) {
      const auto [buffer, base] = buffer_cache.ObtainBuffer(address + offset, size, false);
  
      scheduler.EndRendering();
-+    ApplyHtlGpuBarrier(scheduler);
++    ApplyHtlGpuBarrier(pipeline);
      pipeline->BindResources(set_writes, buffer_barriers, push_data);
  
      const auto cmdbuf = scheduler.CommandBuffer();
+diff --git a/shadps4-arm64-main/src/video_core/renderer_vulkan/vk_rasterizer.h b/shadps4-arm64-main/src/video_core/renderer_vulkan/vk_rasterizer.h
+index 8f61669..e904d2f 100644
+--- a/shadps4-arm64-main/src/video_core/renderer_vulkan/vk_rasterizer.h
++++ b/shadps4-arm64-main/src/video_core/renderer_vulkan/vk_rasterizer.h
+@@ -105,6 +105,8 @@ public:
+     }
+ 
+ private:
++    void ApplyHtlGpuBarrier(const Pipeline* pipeline);
++    bool htl_memory_write_pending{};
+     void PrepareRenderState(const GraphicsPipeline* pipeline);
+     RenderState BeginRendering(const GraphicsPipeline* pipeline);
+     void Resolve();
+diff --git a/shadps4-arm64-main/src/video_core/renderer_vulkan/vk_scheduler.h b/shadps4-arm64-main/src/video_core/renderer_vulkan/vk_scheduler.h
+index a5481f8..abde62b 100644
+--- a/shadps4-arm64-main/src/video_core/renderer_vulkan/vk_scheduler.h
++++ b/shadps4-arm64-main/src/video_core/renderer_vulkan/vk_scheduler.h
+@@ -543,6 +543,10 @@ public:
+         }
+     }
+ 
++    void ForgetGraphicsPipeline() {
++        bound_pipeline = nullptr;
++    }
++
+     /// Counts a draw towards the next flush (see IsFlushDue).
+     void NoteDraw() {
+         ++draws_since_flush;
 diff --git a/shadps4-arm64-main/src/video_core/texture_cache/image.cpp b/shadps4-arm64-main/src/video_core/texture_cache/image.cpp
 index f131a31..d3ad21f 100644
 --- a/shadps4-arm64-main/src/video_core/texture_cache/image.cpp

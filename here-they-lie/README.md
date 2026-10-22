@@ -36,3 +36,5 @@ Only our scripts, text findings, build instructions and upstream references belo
 AstroQuest and shadPS4 are upstream GPL-2.0-or-later projects; see the pinned upstream LICENSE and THIRD-PARTY-NOTICES.md before distributing a modified build. Upstream source and dependency licenses are retained in the separate checkout.
 
 The overnight investigation was explicitly authorized on 22 October 2026. Scripts remain manual launch/build tools; they do not create scheduled jobs.
+
+Performance investigation and optional faster graphics mode: [measurements and limits](docs/PERFORMANCE.md). Native 90 FPS remains unverified.

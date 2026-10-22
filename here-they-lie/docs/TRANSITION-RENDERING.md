@@ -29,3 +29,7 @@ A dense earlier replay also encountered a subresource-state assertion after a co
 ## Private diagnostics
 
 Bounded source/target sequences can be enabled with `SHADPS4_DBG_EYE_SCAN`, `SHADPS4_HTL_CAPTURE_FRAMES` (maximum 1200 sets) and `SHADPS4_HTL_CAPTURE_START` (seconds after the first scanned frame). Defaults do not record. Captures, logs, game data and builds stay local and are excluded from this repository.
+
+## Completed-frame measurement correction
+
+The presenter-ID estimate above is historical, not a rigorous game FPS measurement. Completed-frame profiling and a faster optional state-rebinding experiment are documented in [PERFORMANCE.md](PERFORMANCE.md). Normal launches retain the broad GPU dependency fallback.

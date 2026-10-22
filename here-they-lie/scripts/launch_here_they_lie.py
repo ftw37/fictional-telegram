@@ -23,6 +23,8 @@ def main() -> int:
     parser.add_argument("--replay", type=Path, help="Optional diagnostic input script")
     parser.add_argument("--tv-preview", action="store_true",
                         help="Open the optional TV preview window (off by default)")
+    parser.add_argument("--fast-graphics", action="store_true",
+                        help="Experimental graphics-state rebinding instead of broad GPU barriers")
     args = parser.parse_args()
     root = args.development_root.resolve()
     runtime = root / "test-vr"
@@ -66,6 +68,8 @@ def main() -> int:
                     kernel.CloseHandle(handle)
         env = os.environ.copy()
         for key in ("SHADPS4_INPUT_SCRIPT", "SHADPS4_LIVE_INPUT", "SHADPS4_VR_SOCKET",
+                    "SHADPS4_HTL_TEST_VBLANK_HZ", "SHADPS4_GPU_PROFILE",
+                    "SHADPS4_FRAME_STATS", "SHADPS4_DBG_CALL_TIMES",
                     "SHADPS4_DBG_SKIP_PS", "SHADPS4_DBG_DRAW_VERTICES",
                     "SHADPS4_NGS2_TRACE", "SHADPS4_NGS2_DUMP", "SHADPS4_AUDIO3D_TRACE",
                     "SHADPS4_AUDIO3D_DUMP", "SHADPS4_HTL_AUDIO_TRACE"):
@@ -73,6 +77,7 @@ def main() -> int:
         env.update(SHADPS4_HTL_COMPAT="1", SHADPS4_HTL_NATIVE_CLIP="1",
                    SHADPS4_HTL_FRAME_SYNC="0", SHADPS4_HTL_DRAW_SYNC="0",
                    SHADPS4_HTL_GPU_BARRIER="1",
+                   SHADPS4_HTL_BARRIER_MODE="pipeline" if args.fast_graphics else "broad",
                    SHADPS4_HTL_FX2="1", SHADPS4_HTL_AUDIO_DB="1",
                    SHADPS4_OPENXR="1" if args.mode == "quest" else "0",
                    SHADPS4_XR_WAIT="0", SHADPS4_VR_DEMO="0",
