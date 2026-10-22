@@ -1,0 +1,11 @@
+# Headset theatre mode
+
+The Quest launcher enables a flat OpenXR quad for startup logos and loading frames, positioned 1.524 metres ahead at eye height. The screen is two metres wide and preserves the submitted image's aspect ratio. Normal HMD reprojection submissions switch back to stereo projection. Each mode transition changes a generation counter so queued frames from the previous mode cannot appear in the new mode. Repeated submissions keep the theatre screen anchored in place.
+
+Here They Lie submits its logo images directly through `sceHmdReprojectionStart2dVr`, rather than ordinary TV flips. The compatibility implementation accepts that call's texture descriptor and queues it through the existing HMD frame path, composing one full image for theatre frames. The parameter layout was recovered from the local executable's call site. Its sampler, UV parameters and frame-label pointer are currently not interpreted; presentation uses the entire supplied texture. The call shares the established reprojection display-buffer alternation and flip completion path.
+
+Automatic calibration waits for immersive frames, so logo playback does not consume its startup hold. Desktop preview also displays the submitted flat frames, without starting OpenXR.
+
+The Quest launcher enables `SHADPS4_HTL_XR_FLIP_Y=1` to correct the reported upside-down headset image. This reverses the vertical source coordinates during the OpenXR transfer only; desktop output and horizontal eye order are unchanged. Set the flag to zero when diagnosing orientation. The correction still requires physical headset verification.
+
+Validation on October 22, 2026: emulator build 41 compiled successfully; theatre-state and startup-calibration smoke checks passed; compatibility patch applied to 40 pristine source files and matched the working source. A desktop startup run received 1920×1080 theatre textures and subsequently reached the stereo calibration scene. The brief logo sequence was not visually captured during that run. Physical Quest theatre size, logo appearance, orientation and loading transitions remain unverified. SteamVR was left closed after testing; its room-setup prompt has not been investigated or changed.

@@ -78,6 +78,8 @@ def main() -> int:
         env.update(SHADPS4_HTL_COMPAT="1", SHADPS4_HTL_NATIVE_CLIP="1",
                    SHADPS4_HTL_TOUCH_CONTROLS="1",
                    SHADPS4_HTL_AUTO_CALIBRATE="1" if args.mode == "quest" else "0",
+                   SHADPS4_HTL_THEATRE="1" if args.mode == "quest" else "0",
+                   SHADPS4_HTL_XR_FLIP_Y="1" if args.mode == "quest" else "0",
                    SHADPS4_HTL_FRAME_SYNC="0", SHADPS4_HTL_DRAW_SYNC="0",
                    SHADPS4_HTL_GPU_BARRIER="1",
                    SHADPS4_HTL_BARRIER_MODE="pipeline" if args.fast_graphics else "broad",
