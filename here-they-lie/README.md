@@ -25,6 +25,8 @@ The experimental sampling hook is process-local and restricted to the verified A
 
 The original matching source recognized the social-screen port but skipped presenting it. Our source patch adds a separate native window and routes dedicated social-port frames when available. Here They Lie has not opened that port in observed runs, so its second window currently displays an explicitly labelled synthetic crop of the left eye. That crop is not claimed to reproduce Sony's social output exactly.
 
+The TV preview window is off by default. Add `--tv-preview` to the source launcher to enable it. Current transition-flicker isolation and its validation limits are recorded in `docs/TRANSITION-RENDERING.md`; `scripts/Test-TextureExtent.ps1` runs the mip/layer containment regression checks.
+
 Goal: one TV/social window (identify actual game output versus a synthetic crop), plus one window showing the two headset eyes. Preserve Q/E snap turning and WASD. The flat `-nohmd` mode is a reference, not evidence that a separate TV output already works.
 
 ## Boundaries and provenance
