@@ -1380,10 +1380,35 @@ index 0000000..2fec278
 +}
 +} // namespace Core::Vr
 diff --git a/shadps4-arm64-main/src/core/vr/openxr_host.cpp b/shadps4-arm64-main/src/core/vr/openxr_host.cpp
-index f64f5d0..a80978e 100644
+index f64f5d0..898083a 100644
 --- a/shadps4-arm64-main/src/core/vr/openxr_host.cpp
 +++ b/shadps4-arm64-main/src/core/vr/openxr_host.cpp
-@@ -1191,6 +1191,8 @@ struct OpenXrHost::Impl {
+@@ -30,6 +30,7 @@
+ #include "core/known_title.h"
+ #include "core/vr/late_frame_wait.h"
+ #include "core/vr/openxr_host.h"
++#include "core/vr/startup_calibration.h"
+ #include "input/controller.h"
+ #include "input/pad_source.h"
+ #include "input/scripted_input.h"
+@@ -444,6 +445,8 @@ struct OpenXrHost::Impl {
+     // The headset's own controllers, which stand in for a gamepad where the PC has none, or
+     // has one that is not the one in use (see Input::PadSource).
+     bool use_controllers{true};
++    StartupCalibration htl_startup_calibration;
++    bool htl_auto_options_down{};
+     // What of them was in use at the last look (the buttons that play, the sticks).
+     u32 controllers_in_use{};
+     int pad_hand{1};
+@@ -1109,6 +1112,7 @@ struct OpenXrHost::Impl {
+         sync.activeActionSets = &active;
+         // (Anything but plain success: the game does not have the player's attention.)
+         if (xrSyncActions(session, &sync) != XR_SUCCESS) {
++            htl_startup_calibration.Update(0.0, false);
+             ReleaseControllers("the game is not what the player has in front of them");
+             ApplyRumble(false);
+             return;
+@@ -1191,6 +1195,8 @@ struct OpenXrHost::Impl {
          }
  
          using Buttons = Libraries::Pad::OrbisPadButtonDataOffset;
@@ -1392,7 +1417,7 @@ index f64f5d0..a80978e 100644
          Buttons buttons{};
          const auto add = [&](bool down, Buttons button) {
              if (down) {
-@@ -1203,7 +1205,7 @@ struct OpenXrHost::Impl {
+@@ -1203,7 +1209,7 @@ struct OpenXrHost::Impl {
          // into the microphone, for as long as they are held (Input::SetBlowing).
          const bool circle = pressed(act_circle);
          const bool triangle = pressed(act_triangle);
@@ -1401,7 +1426,37 @@ index f64f5d0..a80978e 100644
          add(circle && !blow, Buttons::Circle);
          add(triangle && !blow, Buttons::Triangle);
          add(pressed(act_options), Buttons::Options);
-@@ -1279,7 +1281,8 @@ struct OpenXrHost::Impl {
+@@ -1221,6 +1227,7 @@ struct OpenXrHost::Impl {
+             finger.x = test_flick;
+         }
+         if (!any_active) {
++            htl_startup_calibration.Update(0.0, false);
+             // Both lie somewhere, asleep.
+             controllers_in_use = 0;
+             ReleaseControllers("they are not in the player's hands");
+@@ -1243,10 +1250,21 @@ struct OpenXrHost::Impl {
+         const bool used = (in_use & ~controllers_in_use) != 0;
+         controllers_in_use = in_use;
+         if (!Input::FirstPadSource().Update(seconds, gamepad, used)) {
++            htl_startup_calibration.Update(0.0, false);
+             ReleaseControllers("the gamepad on the PC was used");
+             ApplyRumble(false);
+             return;
+         }
++        const bool auto_options = htl_startup_calibration.Update(
++            seconds, htl_controls && EnvFlag("SHADPS4_HTL_AUTO_CALIBRATE", false) &&
++                         delivered_frames.load(std::memory_order_relaxed) >= 30 &&
++                         head_tracked_frames > 0);
++        if (auto_options != htl_auto_options_down) {
++            LOG_INFO(Core_Vr, "HTL startup calibration: Options {}",
++                     auto_options ? "held automatically" : "released");
++            htl_auto_options_down = auto_options;
++        }
++        add(auto_options, Buttons::Options);
+         if (blow != blowing) {
+             blowing = blow;
+             Input::SetBlowing(blow);
+@@ -1279,7 +1297,8 @@ struct OpenXrHost::Impl {
          }
          view_reset_held = view_reset;
          add(left_stick_in && !view_reset, Buttons::L3);
@@ -1411,7 +1466,7 @@ index f64f5d0..a80978e 100644
  
          const auto axis = [](float value) {
              return std::clamp(static_cast<int>(std::lround(128.0f + value * 127.0f)), 0, 255);
-@@ -1290,7 +1293,10 @@ struct OpenXrHost::Impl {
+@@ -1290,7 +1309,10 @@ struct OpenXrHost::Impl {
          };
          // A stick pushed away from the player says +1 here, and 0 on a gamepad.
          const std::array<int, 6> axes{
@@ -1423,7 +1478,7 @@ index f64f5d0..a80978e 100644
          };
          // (The trigger buttons follow from the axes where they are applied.)
          if (axes[4] > 0) {
-@@ -1305,14 +1311,14 @@ struct OpenXrHost::Impl {
+@@ -1305,14 +1327,14 @@ struct OpenXrHost::Impl {
          // hand's trigger pulls back and lets go when it is let go. (They stay L1, R1, L2 and
          // R2 besides: the title has no use for those in play, but its menus have.)
          Input::PadGestures::Controls controls;
@@ -1442,7 +1497,7 @@ index f64f5d0..a80978e 100644
          if (const int steps = view_turn.Update(turning, finger.x); steps != 0) {
              Runtime::Instance().TurnView(steps);
          }
-@@ -1327,13 +1333,13 @@ struct OpenXrHost::Impl {
+@@ -1327,13 +1349,13 @@ struct OpenXrHost::Impl {
              if (made.pressed) {
                  buttons |= Buttons::TouchPad;
              }
@@ -1513,6 +1568,50 @@ index 0000000..25baf45
 +    frame.serial = social_preview_frame.serial + 1;
 +    social_preview_frame = std::move(frame);
 +}
++} // namespace Core::Vr
+diff --git a/shadps4-arm64-main/src/core/vr/startup_calibration.h b/shadps4-arm64-main/src/core/vr/startup_calibration.h
+new file mode 100644
+index 0000000..bb86031
+--- /dev/null
++++ b/shadps4-arm64-main/src/core/vr/startup_calibration.h
+@@ -0,0 +1,38 @@
++// SPDX-License-Identifier: GPL-2.0-or-later
++#pragma once
++#include <algorithm>
++
++namespace Core::Vr {
++// One startup Options hold after focused, tracked game frames are available.
++// Losing focus before the hold restarts the countdown; losing it during the hold
++// cancels the attempt permanently, so returning later cannot pause gameplay.
++class StartupCalibration {
++public:
++    bool Update(double seconds, bool ready) {
++        if (done) {
++            return false;
++        }
++        if (!ready) {
++            done = holding;
++            elapsed = 0.0;
++            previous = -1.0;
++            return false;
++        }
++        if (previous >= 0.0) {
++            elapsed += std::clamp(seconds - previous, 0.0, 0.1);
++        }
++        previous = seconds;
++        if (elapsed >= 5.0) {
++            done = true;
++            return false;
++        }
++        holding = elapsed >= 3.0;
++        return holding;
++    }
++private:
++    double previous{-1.0};
++    double elapsed{};
++    bool holding{};
++    bool done{};
++};
 +} // namespace Core::Vr
 diff --git a/shadps4-arm64-main/src/core/vr/vr_runtime.cpp b/shadps4-arm64-main/src/core/vr/vr_runtime.cpp
 index b7c3820..1a029bf 100644
