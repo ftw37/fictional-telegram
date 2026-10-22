@@ -2,7 +2,7 @@
 
 Development tools, reproducible build instructions and diagnostic experiments for running a personally supplied copy of Here They Lie through AstroQuest/shadPS4, ultimately on a Quest 2 via Virtual Desktop.
 
-**Status:** flat mode has reached gameplay; VR has reached the subway. Shared-image stereo duplication is understood and a temporary per-eye half-image sampling patch has been tested. Incorrect view content, projection/aspect and rendering bands remain. Actual Quest output has not been validated. This is not a completed port.
+**Status:** the rebuilt emulator has reached the subway with coherent stereo, corresponding doors in both eyes, and working simulated head rotation and movement. Packed-eye sampling fixes the four-view duplication; native clipping fixes the reproduced NVIDIA rendering overlays. A fresh control run reproduced the defect when that clipping change was disabled. Actual Quest output has not been validated. See [overnight findings](docs/OVERNIGHT-RENDERING.md) for limits and ongoing audio work.
 
 ## Build on this Windows computer
 
@@ -10,9 +10,10 @@ PowerShell scripts default to portable tools in `Documents/Codex/DevTools/htl`, 
 
 1. `./scripts/Prepare-Toolchain.ps1` downloads pinned portable Git, CMake, Ninja, LLVM and the Windows SDK/runtime libraries. It verifies archive hashes, uses the SDK's Windows layout, and accepts the Microsoft SDK license for these development tools. No system PATH changes or full Visual Studio IDE are required.
 2. `./scripts/Get-EmulatorSource.ps1` obtains the public source revision in `upstream.lock.json` and the dependencies needed for Windows.
-3. `./scripts/Build-Emulator.ps1` configures and builds a Release emulator with OpenXR enabled. `-ConfigureOnly` checks configuration; `-Jobs 8` controls build parallelism.
+3. `./scripts/Apply-CompatibilityPatch.ps1` applies our source changes at that exact revision, checking for conflicts first.
+4. `./scripts/Build-Emulator.ps1` configures and builds a Release emulator with OpenXR enabled. `-ConfigureOnly` checks configuration; `-Jobs 8` controls build parallelism.
 
-The build is separate from the working emulator. Nothing deploys or launches the new executable automatically. Its addresses and hash will differ, so the existing hard-coded diagnostic adapters must NOT be used with a rebuilt binary; their hash checks deliberately refuse it.
+The build is separate from the original working emulator. Its addresses and hash differ, so the existing hard-coded diagnostic adapters must NOT be used with a rebuilt binary; their hash checks deliberately refuse it. The new `scripts/launch_here_they_lie.py` enables the source compatibility options directly. It expects a locally prepared `HTL-Development/test-vr` runtime and the user's extracted game; it does not copy game modules or install an emulator automatically.
 
 ## Existing experiments
 
@@ -22,7 +23,7 @@ The experimental sampling hook is process-local and restricted to the verified A
 
 ## Social screen findings
 
-The matching source recognizes the social-screen port and maintains its timing, but deliberately skips renderer registration for its buffers and completes flips without presenting them. Earlier Here They Lie logs did not show the game opening that dedicated port. Implementing a second window therefore also requires tracing how this title requests its TV image; it may use a system-generated mirror path.
+The original matching source recognized the social-screen port but skipped presenting it. Our source patch adds a separate native window and routes dedicated social-port frames when available. Here They Lie has not opened that port in observed runs, so its second window currently displays an explicitly labelled synthetic crop of the left eye. That crop is not claimed to reproduce Sony's social output exactly.
 
 Goal: one TV/social window (identify actual game output versus a synthetic crop), plus one window showing the two headset eyes. Preserve Q/E snap turning and WASD. The flat `-nohmd` mode is a reference, not evidence that a separate TV output already works.
 
@@ -32,4 +33,4 @@ Only our scripts, text findings, build instructions and upstream references belo
 
 AstroQuest and shadPS4 are upstream GPL-2.0-or-later projects; see the pinned upstream LICENSE and THIRD-PARTY-NOTICES.md before distributing a modified build. Upstream source and dependency licenses are retained in the separate checkout.
 
-No overnight investigation is scheduled or started by these scripts. That work awaits the user's explicit instruction.
+The overnight investigation was explicitly authorized on 22 October 2026. Scripts remain manual launch/build tools; they do not create scheduled jobs.

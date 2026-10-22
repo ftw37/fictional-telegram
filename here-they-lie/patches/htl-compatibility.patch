@@ -1,0 +1,1782 @@
+diff --git a/shadps4-arm64-main/src/core/libraries/audio3d/audio3d.cpp b/shadps4-arm64-main/src/core/libraries/audio3d/audio3d.cpp
+index 75ab1b5..fb2d55b 100644
+--- a/shadps4-arm64-main/src/core/libraries/audio3d/audio3d.cpp
++++ b/shadps4-arm64-main/src/core/libraries/audio3d/audio3d.cpp
+@@ -10,6 +10,7 @@
+ 
+ #include "common/assert.h"
+ #include "common/logging/log.h"
++#include "common/path_util.h"
+ #include "core/libraries/audio/audioout.h"
+ #include "core/libraries/audio/audioout_error.h"
+ #include "core/libraries/audio3d/audio3d.h"
+@@ -94,7 +95,15 @@ static s32 ApplyAttribute(const Port& port, ObjectState& obj, const OrbisAudio3d
+         return ORBIS_OK;
+     }
+     case OrbisAudio3dAttributeId::ORBIS_AUDIO3D_ATTRIBUTE_GAIN:
+-        read(obj.placement.gain);
++        if (read(obj.placement.gain)) {
++            static const bool htl_db = std::getenv("SHADPS4_HTL_AUDIO_DB") != nullptr;
++            if (htl_db) {
++                const float db = obj.placement.gain;
++                obj.placement.gain = std::isfinite(db) && db > -100.0f
++                                         ? std::pow(10.0f, std::clamp(db, -100.0f, 24.0f) / 20.0f)
++                                         : 0.0f;
++            }
++        }
+         return ORBIS_OK;
+     case OrbisAudio3dAttributeId::ORBIS_AUDIO3D_ATTRIBUTE_SPREAD:
+         read(obj.placement.spread);
+@@ -603,9 +612,9 @@ s32 PS4_SYSV_ABI sceAudio3dPortAdvance(const OrbisAudio3dPortId port_id) {
+             LOG_INFO(Lib_Audio3d,
+                      "trace:   #{} pos ({:.2f}, {:.2f}, {:.2f}) gain {:.3f} spread {:.2f} "
+                      "priority {} passthrough {} ambisonic {} peak {:.3f}{}",
+-                     obj_id, obj.placement.x, obj.placement.y, obj.placement.z,
+-                     obj.placement.gain, obj.placement.spread, obj.priority, obj.passthrough,
+-                     obj.ambisonic_channel, peak, extra);
++                     obj_id, obj.placement.x, obj.placement.y, obj.placement.z, obj.placement.gain,
++                     obj.placement.spread, obj.priority, obj.passthrough, obj.ambisonic_channel,
++                     peak, extra);
+         }
+     }
+ 
+@@ -620,13 +629,25 @@ s32 PS4_SYSV_ABI sceAudio3dPortAdvance(const OrbisAudio3dPortId port_id) {
+         const float peak = std::max(std::abs(mix[i * 2]), std::abs(mix[i * 2 + 1]));
+         const float target = peak > 1.0f ? 1.0f / peak : 1.0f;
+         gain = target < gain ? target : gain + (target - gain) * 0.0002f;
+-        mix_s16[i * 2 + 0] = static_cast<s16>(std::clamp(mix[i * 2 + 0] * gain, -1.0f, 1.0f) *
+-                                              32767.0f);
+-        mix_s16[i * 2 + 1] = static_cast<s16>(std::clamp(mix[i * 2 + 1] * gain, -1.0f, 1.0f) *
+-                                              32767.0f);
++        mix_s16[i * 2 + 0] =
++            static_cast<s16>(std::clamp(mix[i * 2 + 0] * gain, -1.0f, 1.0f) * 32767.0f);
++        mix_s16[i * 2 + 1] =
++            static_cast<s16>(std::clamp(mix[i * 2 + 1] * gain, -1.0f, 1.0f) * 32767.0f);
+     }
+     port.limiter_gain = std::isfinite(gain) ? gain : 1.0f;
+ 
++    if (!port.dump_attempted) {
++        port.dump_attempted = true;
++        const char* seconds = std::getenv("SHADPS4_AUDIO3D_DUMP");
++        if (seconds && std::atoi(seconds) > 0) {
++            const auto path = Common::FS::GetUserPath(Common::FS::PathType::UserDir) /
++                              fmt::format("audio3d-port{}.wav", port_id);
++            port.debug_dump.Open(path.string(), 2, AUDIO3D_SAMPLE_RATE,
++                                 u64(std::clamp(std::atoi(seconds), 1, 600)) * AUDIO3D_SAMPLE_RATE);
++        }
++    }
++    port.debug_dump.Write(mix_s16, granularity);
++
+     port.mixed_queue.push_back(AudioData{.sample_buffer = reinterpret_cast<u8*>(mix_s16),
+                                          .num_samples = granularity,
+                                          .num_channels = AUDIO3D_OUTPUT_NUM_CHANNELS,
+@@ -663,7 +684,6 @@ s32 PS4_SYSV_ABI sceAudio3dPortClose(const OrbisAudio3dPortId port_id) {
+         for (auto& data : port.bed_queue) {
+             std::free(data.sample_buffer);
+         }
+-
+     }
+ 
+     state->ports.erase(port_id);
+diff --git a/shadps4-arm64-main/src/core/libraries/audio3d/audio3d.h b/shadps4-arm64-main/src/core/libraries/audio3d/audio3d.h
+index 1a50819..c7b5d5b 100644
+--- a/shadps4-arm64-main/src/core/libraries/audio3d/audio3d.h
++++ b/shadps4-arm64-main/src/core/libraries/audio3d/audio3d.h
+@@ -4,13 +4,14 @@
+ #pragma once
+ 
+ #include <algorithm>
++#include <deque>
+ #include <mutex>
+ #include <optional>
+-#include <deque>
+ #include <unordered_map>
+ #include <vector>
+ 
+ #include "common/types.h"
++#include "common/wave_dump.h"
+ #include "core/libraries/audio/audioout.h"
+ #include "core/libraries/audio3d/audio3d_spatializer.h"
+ 
+@@ -136,6 +137,8 @@ struct Port {
+     std::vector<float> mix_buffer;
+     float limiter_gain{1.0f};
+     u64 advance_count{};
++    bool dump_attempted{};
++    Common::WaveDump debug_dump;
+ };
+ 
+ struct Audio3dState {
+diff --git a/shadps4-arm64-main/src/core/libraries/hmd/hmd_reprojection.cpp b/shadps4-arm64-main/src/core/libraries/hmd/hmd_reprojection.cpp
+index 5e952ca..9c025e8 100644
+--- a/shadps4-arm64-main/src/core/libraries/hmd/hmd_reprojection.cpp
++++ b/shadps4-arm64-main/src/core/libraries/hmd/hmd_reprojection.cpp
+@@ -210,6 +210,19 @@ s32 PS4_SYSV_ABI sceHmdReprojectionStart(const OrbisHmdReprojectionParam* param,
+     std::memcpy(&frame.eye_textures[0], param->texture[0], sizeof(AmdGpu::Image));
+     std::memcpy(&frame.eye_textures[1], param->texture[1], sizeof(AmdGpu::Image));
+     frame.fov = FovFromUv(param->uv[0]);
++    // Packed stereo: the two descriptors share a texture, but their optical centres differ.
++    // Preserve the subimage and derive FOV from its edges, not the entire stereo atlas.
++    const bool packed = frame.eye_textures[0].Address() == frame.eye_textures[1].Address() &&
++                        param->uv[1].offset_x - param->uv[0].offset_x > 0.25f &&
++                        param->uv[0].scale_x > 0.0f && param->uv[0].scale_y > 0.0f;
++    if (packed) {
++        frame.eye_uv = {{{0.5f, 1.f, 0.f, 0.f}, {0.5f, 1.f, 0.5f, 0.f}}};
++        const auto& uv = param->uv[0];
++        frame.fov = {.tan_out = uv.offset_x / uv.scale_x,
++                     .tan_in = (0.5f - uv.offset_x) / uv.scale_x,
++                     .tan_top = uv.offset_y / uv.scale_y,
++                     .tan_bottom = (1.f - uv.offset_y) / uv.scale_y};
++    }
+     frame.render_pose = {
+         .position{tracker_state->position[0], tracker_state->position[1],
+                   tracker_state->position[2]},
+diff --git a/shadps4-arm64-main/src/core/libraries/ngs2/ngs2.cpp b/shadps4-arm64-main/src/core/libraries/ngs2/ngs2.cpp
+index 608b2d3..224a46b 100644
+--- a/shadps4-arm64-main/src/core/libraries/ngs2/ngs2.cpp
++++ b/shadps4-arm64-main/src/core/libraries/ngs2/ngs2.cpp
+@@ -2,8 +2,11 @@
+ // SPDX-License-Identifier: GPL-2.0-or-later
+ 
+ #include <algorithm>
++#include <cstdlib>
++#include <fstream>
+ 
+ #include "common/logging/log.h"
++#include "common/path_util.h"
+ #include "core/libraries/error_codes.h"
+ #include "core/libraries/libs.h"
+ #include "core/libraries/ngs2/ngs2.h"
+@@ -14,6 +17,7 @@
+ #include "core/libraries/ngs2/ngs2_impl.h"
+ #include "core/libraries/ngs2/ngs2_pan.h"
+ #include "core/libraries/ngs2/ngs2_report.h"
++#include "core/libraries/ngs2/ngs2_waveform.h"
+ 
+ namespace Libraries::Ngs2 {
+ 
+@@ -21,6 +25,21 @@ namespace Libraries::Ngs2 {
+ 
+ s32 PS4_SYSV_ABI sceNgs2CalcWaveformBlock(const OrbisNgs2WaveformFormat* format, u32 samplePos,
+                                           u32 numSamples, OrbisNgs2WaveformBlock* outBlock) {
++    if (std::getenv("SHADPS4_HTL_COMPAT")) {
++        if (!format || !outBlock)
++            return ORBIS_NGS2_ERROR_INVALID_OUT_ADDRESS;
++        const auto block =
++            Waveform::CalculateBlock({format->waveformType, format->numChannels, format->sampleRate,
++                                      format->configData, format->frameOffset},
++                                     samplePos, numSamples);
++        if (!block)
++            return ORBIS_NGS2_ERROR_INVALID_WAVEFORM_FORMAT;
++        *outBlock = {.dataOffset = block->offset,
++                     .dataSize = block->bytes,
++                     .numSkipSamples = block->skip,
++                     .numSamples = block->samples};
++        return ORBIS_OK;
++    }
+     LOG_ERROR(Lib_Ngs2, "samplePos = {}, numSamples = {}", samplePos, numSamples);
+     return ORBIS_OK;
+ }
+@@ -28,12 +47,80 @@ s32 PS4_SYSV_ABI sceNgs2CalcWaveformBlock(const OrbisNgs2WaveformFormat* format,
+ s32 PS4_SYSV_ABI sceNgs2GetWaveformFrameInfo(const OrbisNgs2WaveformFormat* format,
+                                              u32* outFrameSize, u32* outNumFrameSamples,
+                                              u32* outUnitsPerFrame, u32* outNumDelaySamples) {
++    if (std::getenv("SHADPS4_HTL_COMPAT")) {
++        if (!format)
++            return ORBIS_NGS2_ERROR_INVALID_WAVEFORM_ADDRESS;
++        const auto layout =
++            Waveform::Describe({format->waveformType, format->numChannels, format->sampleRate,
++                                format->configData, format->frameOffset});
++        if (!layout)
++            return ORBIS_NGS2_ERROR_INVALID_WAVEFORM_FORMAT;
++        if (outFrameSize)
++            *outFrameSize = layout->bytes;
++        if (outNumFrameSamples)
++            *outNumFrameSamples = layout->samples;
++        if (outUnitsPerFrame)
++            *outUnitsPerFrame = layout->units;
++        if (outNumDelaySamples)
++            *outNumDelaySamples = layout->delay;
++        return ORBIS_OK;
++    }
+     LOG_ERROR(Lib_Ngs2, "called");
+     return ORBIS_OK;
+ }
+ 
+ s32 PS4_SYSV_ABI sceNgs2ParseWaveformData(const void* data, size_t dataSize,
+                                           OrbisNgs2WaveformInfo* outInfo) {
++    if (std::getenv("SHADPS4_HTL_AUDIO_TRACE") && data) {
++        static u32 captured = 0;
++        if (captured < 6) {
++            const auto directory =
++                Common::FS::GetUserPath(Common::FS::PathType::UserDir) / "audio_headers";
++            std::error_code error;
++            std::filesystem::create_directories(directory, error);
++            std::ofstream stream(directory / fmt::format("{}.bin", captured++), std::ios::binary);
++            stream.write(static_cast<const char*>(data), std::min<size_t>(dataSize, 4096));
++        }
++    }
++    if (std::getenv("SHADPS4_HTL_COMPAT")) {
++        if (!data || !outInfo)
++            return ORBIS_NGS2_ERROR_INVALID_WAVEFORM_ADDRESS;
++        const auto parsed = Waveform::Parse({static_cast<const u8*>(data), dataSize});
++        if (!parsed)
++            return ORBIS_NGS2_ERROR_INVALID_WAVEFORM_DATA;
++        OrbisNgs2WaveformInfo result{};
++        result.format = {.waveformType = parsed->format.type,
++                         .numChannels = parsed->format.channels,
++                         .sampleRate = parsed->format.rate,
++                         .configData = parsed->format.config,
++                         .frameOffset = parsed->format.delay};
++        result.dataOffset = parsed->offset;
++        result.dataSize = parsed->bytes;
++        result.loopBeginPosition = parsed->loop_begin;
++        result.loopEndPosition = parsed->loop_end;
++        result.numSamples = parsed->samples;
++        result.audioUnitSize = parsed->layout.bytes / parsed->layout.units;
++        result.numAudioUnitSamples = parsed->layout.samples / parsed->layout.units;
++        result.numAudioUnitPerFrame = parsed->layout.units;
++        result.audioFrameSize = parsed->layout.bytes;
++        result.numAudioFrameSamples = parsed->layout.samples;
++        result.numDelaySamples = parsed->format.delay;
++        result.numBlocks = 1;
++        result.aBlock[0] = {.dataOffset = parsed->offset,
++                            .dataSize = parsed->bytes,
++                            .numSkipSamples = parsed->format.delay,
++                            .numSamples = parsed->samples};
++        *outInfo = result;
++        static u32 logged = 0;
++        if (logged++ < 8)
++            LOG_INFO(Lib_Ngs2,
++                     "HTL waveform parsed: type={:#x} channels={} rate={} samples={} offset={} "
++                     "bytes={} delay={}",
++                     result.format.waveformType, result.format.numChannels,
++                     result.format.sampleRate, result.numSamples, result.dataOffset,
++                     result.dataSize, result.numDelaySamples);
++        return ORBIS_OK;
++    }
+     LOG_ERROR(Lib_Ngs2, "dataSize = {}", dataSize);
+     return ORBIS_OK;
+ }
+diff --git a/shadps4-arm64-main/src/core/libraries/ngs2/ngs2_codec.cpp b/shadps4-arm64-main/src/core/libraries/ngs2/ngs2_codec.cpp
+index 75d8ab8..f27b99c 100644
+--- a/shadps4-arm64-main/src/core/libraries/ngs2/ngs2_codec.cpp
++++ b/shadps4-arm64-main/src/core/libraries/ngs2/ngs2_codec.cpp
+@@ -166,6 +166,12 @@ void WaveformDecoder::Restart() {
+ 
+ size_t WaveformDecoder::DecodeFrame(const u8* data, size_t size, std::vector<float>& out) {
+     if (type == WaveformAtrac9) {
++        // A waveform block must point at the encoded payload, not its RIFF container.
++        // Sending a container header into LibAtrac9 can corrupt its decoder state.
++        if (size >= 12 && !std::memcmp(data, "RIFF", 4) && !std::memcmp(data + 8, "WAVE", 4)) {
++            LOG_ERROR(Lib_Ngs2, "ATRAC9 block points at a RIFF header instead of audio data");
++            return 0;
++        }
+         if (atrac9 == nullptr || size < static_cast<size_t>(superframe_remaining)) {
+             return 0;
+         }
+diff --git a/shadps4-arm64-main/src/core/libraries/ngs2/ngs2_engine.cpp b/shadps4-arm64-main/src/core/libraries/ngs2/ngs2_engine.cpp
+index bfeda7e..3706ffe 100644
+--- a/shadps4-arm64-main/src/core/libraries/ngs2/ngs2_engine.cpp
++++ b/shadps4-arm64-main/src/core/libraries/ngs2/ngs2_engine.cpp
+@@ -10,6 +10,7 @@
+ #include <deque>
+ #include <memory>
+ #include <mutex>
++#include <optional>
+ #include <string>
+ #include <unordered_map>
+ #include <vector>
+@@ -187,9 +188,8 @@ struct Envelope {
+             const auto& point = points[stage];
+             if (position < point.duration) {
+                 ++position;
+-                height = start + (point.height - start) *
+-                                     (static_cast<float>(position) /
+-                                      static_cast<float>(point.duration));
++                height = start + (point.height - start) * (static_cast<float>(position) /
++                                                           static_cast<float>(point.duration));
+                 return height;
+             }
+             height = point.height;
+@@ -250,6 +250,16 @@ struct SamplerState {
+ struct ModuleInfo {
+     u32 id{};
+     float delay_max_ms{1000.0f};
++    std::optional<OrbisNgs2CustomUserFx2ModuleOption> user_fx2;
++    std::vector<u8> common;
++    u32 state_offset{};
++};
++
++struct UserFx2State {
++    size_t module{};
++    std::vector<u8> param, work;
++    bool dirty{true};
++    bool active{};
+ };
+ 
+ struct Voice {
+@@ -271,6 +281,8 @@ struct Voice {
+ 
+     OrbisNgs2UserFxProcessHandler fx_handler{};
+     std::array<uintptr_t, 3> fx_user_data{};
++    std::vector<UserFx2State> user_fx2;
++    std::vector<u8> custom_state;
+ 
+     /// What the voices patched into this one have produced for the block being rendered.
+     std::unique_ptr<float[]> input;
+@@ -304,6 +316,7 @@ struct Rack {
+     OrbisNgs2BufferFreeHandler free_handler{};
+     uintptr_t user_data{};
+     std::vector<ModuleInfo> modules;
++    u32 custom_state_size{};
+     std::vector<std::unique_ptr<Voice>> voices;
+ 
+     bool IsSampler() const {
+@@ -456,6 +469,7 @@ void TraceParam(const Voice& voice, const OrbisNgs2VoiceParamHeader* header) {
+         }
+         break;
+     }
++    case 0x40010001:
+     case SamplerAddWaveformBlocks: {
+         const auto* param =
+             reinterpret_cast<const OrbisNgs2SamplerVoiceWaveformBlocksParam*>(header);
+@@ -519,9 +533,9 @@ void TraceRackOption(const char* what, u32 rack_id, const OrbisNgs2RackOption* o
+     if (option->size > base && option->size <= 4096) {
+         const bool custom = (rack_id & 0xf000) == 0x4000;
+         if (!custom) {
+-            trace.Line("    extra=%s",
+-                       Hex(reinterpret_cast<const u8*>(option) + base, option->size - base, 96)
+-                           .c_str());
++            trace.Line(
++                "    extra=%s",
++                Hex(reinterpret_cast<const u8*>(option) + base, option->size - base, 96).c_str());
+         } else if (option->size >= sizeof(OrbisNgs2CustomRackOption)) {
+             const auto* custom_option = reinterpret_cast<const OrbisNgs2CustomRackOption*>(option);
+             trace.Line("    custom stateSize=%u numBuffers=%u numModules=%u",
+@@ -564,8 +578,55 @@ void ResetFilters(Voice& voice) {
+     voice.any_filter = false;
+ }
+ 
++template <typename Handler, typename Context>
++s32 CallUserFx2(Handler handler, Context& context) {
++#ifdef SHADPS4_ENABLE_FEX_GUEST_CPU
++    if (Core::GuestCpu::IsGuestFunctionAddress(reinterpret_cast<const void*>(handler))) {
++        return static_cast<s32>(Core::GuestCpu::RunGuestFunctionOrAbort(
++            reinterpret_cast<const void*>(handler), "Ngs2 user effect 2", &context));
++    }
++#endif
++    return handler(&context);
++}
++
++void RunUserFx2(Voice& voice, float* const channels[], u32 num_channels, u32 count,
++                bool finish = false) {
++    for (auto& state : voice.user_fx2) {
++        auto& module = voice.rack->modules[state.module];
++        const auto& option = *module.user_fx2;
++        if (!option.processHandler || (finish && !state.active))
++            continue;
++        std::array<float*, MaxChannels> data{};
++        for (u32 c = 0; c < MaxChannels; ++c)
++            data[c] = channels[std::min(c, num_channels - 1)];
++        OrbisNgs2UserFx2ProcessContext context{};
++        context.aChannelData = data.data();
++        context.common = module.common.data();
++        context.param = state.param.data();
++        context.work = state.work.data();
++        context.state =
++            voice.custom_state.empty() ? nullptr : voice.custom_state.data() + module.state_offset;
++        context.userData = option.userData;
++        context.flags = finish ? 0x20u : ((voice.fresh ? 1u : 0u) | (state.dirty ? 2u : 0u));
++        context.numInputChannels = num_channels;
++        context.numOutputChannels = num_channels;
++        context.numGrainSamples = count;
++        context.sampleRate = voice.rack->system->sample_rate;
++        CallUserFx2(option.processHandler, context);
++        state.dirty = false;
++        state.active = !finish;
++    }
++}
++
+ /// The voice has nothing more to play: titles watch for the "in use" flag to drop.
+ void FinishVoice(Voice& voice) {
++    if (!voice.user_fx2.empty()) {
++        std::array<float, MaxGrain> silence{};
++        std::array<float*, MaxChannels> data{};
++        data.fill(silence.data());
++        RunUserFx2(voice, data.data(), std::max(1u, voice.channels),
++                   voice.rack->system->grain_samples, true);
++    }
+     voice.playing = false;
+     voice.paused = false;
+     voice.state_flags = StateFlagStopped;
+@@ -830,8 +891,8 @@ u32 PullSource(SamplerState& sampler, float* const out[], u32 count) {
+             continue;
+         }
+ 
+-        const u32 take = static_cast<u32>(
+-            std::min<size_t>({available, count - produced, sampler.samples_left}));
++        const u32 take =
++            static_cast<u32>(std::min<size_t>({available, count - produced, sampler.samples_left}));
+         const float* source = sampler.fifo.data() + sampler.fifo_read;
+         for (u32 c = 0; c < num_channels; ++c) {
+             float* target = out[c] + produced;
+@@ -922,6 +983,7 @@ void RenderSampler(System& system, Voice& voice, u32 count) {
+     }
+ 
+     RunFilters(voice, out.data(), num_channels, count);
++    RunUserFx2(voice, out.data(), num_channels, count);
+     RunUserFx(voice, out.data(), num_channels, count);
+     bool sane = true;
+     voice.peak = PeakOf(out.data(), num_channels, count, sane);
+@@ -1092,8 +1154,7 @@ void RebuildOrder(System& system) {
+     // Voices patched in a circle have no right order; they still get rendered.
+     if (system.order.size() != nodes.size()) {
+         for (Voice* voice : nodes) {
+-            if (std::find(system.order.begin(), system.order.end(), voice) ==
+-                system.order.end()) {
++            if (std::find(system.order.begin(), system.order.end(), voice) == system.order.end()) {
+                 system.order.push_back(voice);
+             }
+         }
+@@ -1150,6 +1211,8 @@ u32 TailBlocks(const System& system, float seconds) {
+ // --- voice parameters ---------------------------------------------------------------------------
+ 
+ s32 SetupSampler(Voice& voice, const OrbisNgs2WaveformFormat& format) {
++    if (!voice.user_fx2.empty())
++        FinishVoice(voice);
+     if (!voice.sampler) {
+         voice.sampler = std::make_unique<SamplerState>();
+     }
+@@ -1322,7 +1385,12 @@ s32 ApplyCommonParam(Registry& registry, Voice& voice, const OrbisNgs2VoiceParam
+         if (param->port >= voice.ports.size()) {
+             return ORBIS_NGS2_ERROR_INVALID_PORT_INDEX;
+         }
+-        voice.ports[param->port].volume = std::isfinite(param->level) ? param->level : 0.0f;
++        static const bool htl_db = std::getenv("SHADPS4_HTL_AUDIO_DB") != nullptr;
++        voice.ports[param->port].volume =
++            htl_db ? (std::isfinite(param->level) && param->level > -100.0f
++                          ? std::pow(10.0f, std::clamp(param->level, -100.0f, 24.0f) / 20.0f)
++                          : 0.0f)
++                   : (std::isfinite(param->level) ? param->level : 0.0f);
+         return ORBIS_OK;
+     }
+     case ParamPortMatrix: {
+@@ -1377,18 +1445,63 @@ s32 ApplyCommonParam(Registry& registry, Voice& voice, const OrbisNgs2VoiceParam
+ }
+ 
+ s32 ApplySamplerParam(Voice& voice, const OrbisNgs2VoiceParamHeader* header) {
+-    if (header->id == SamplerSetup || header->id == CustomSamplerSetup) {
++    if ((header->id & 0xffffff00) == 0x40001f00 && !voice.user_fx2.empty()) {
++        const auto* param = As<OrbisNgs2CustomVoiceUserFx2Param>(header);
++        if (!param)
++            return ORBIS_NGS2_ERROR_INVALID_VOICE_CONTROL_SIZE;
++        const size_t index = header->id & 0xff;
++        for (auto& state : voice.user_fx2) {
++            if (state.module != index)
++                continue;
++            auto& module = voice.rack->modules[index];
++            const auto& option = *module.user_fx2;
++            if (param->dataSize > state.param.size() || (!param->data && param->dataSize))
++                return ORBIS_NGS2_ERROR_INVALID_VOICE_CONTROL_SIZE;
++            if (option.controlHandler) {
++                OrbisNgs2UserFx2ControlContext context{};
++                context.data = param->data;
++                context.dataSize = param->dataSize;
++                context.common = module.common.data();
++                context.param = state.param.data();
++                context.userData = option.userData;
++                const s32 status = CallUserFx2(option.controlHandler, context);
++                if (status < 0)
++                    return status;
++            } else if (param->dataSize) {
++                std::memcpy(state.param.data(), param->data, param->dataSize);
++            }
++            state.dirty = true;
++            return ORBIS_OK;
++        }
++        return ORBIS_NGS2_ERROR_INVALID_VOICE_CONTROL_ID;
++    }
++    u32 command_id = header->id;
++    if (std::getenv("SHADPS4_HTL_COMPAT") && voice.rack->rack_id == RackIdCustomSampler &&
++        (command_id & 0xffff0000) == CustomSamplerSetup && (command_id & 0xffff) <= 5) {
++        // The custom sampler's basic stream commands have the same payload layouts.
++        command_id = SamplerSetup | (command_id & 0xffff);
++    }
++    if (command_id == SamplerSetup || command_id == CustomSamplerSetup) {
+         const auto* param = As<OrbisNgs2SamplerVoiceSetupParam>(header);
+         if (param == nullptr) {
+             return ORBIS_NGS2_ERROR_INVALID_VOICE_CONTROL_SIZE;
+         }
++        if (std::getenv("SHADPS4_HTL_COMPAT")) {
++            static u32 traced = 0;
++            if (traced++ < 8) {
++                std::array<u64, 5> words{};
++                std::memcpy(words.data(), header, sizeof(words));
++                LOG_INFO(Lib_Ngs2, "HTL sampler setup size={} words={:#x},{:#x},{:#x},{:#x},{:#x}",
++                         header->size, words[0], words[1], words[2], words[3], words[4]);
++            }
++        }
+         return SetupSampler(voice, param->format);
+     }
+     if (!voice.sampler) {
+         return ORBIS_NGS2_ERROR_UNINIT_VOICE;
+     }
+     auto& sampler = *voice.sampler;
+-    switch (header->id) {
++    switch (command_id) {
+     case SamplerAddWaveformBlocks: {
+         const auto* param = As<OrbisNgs2SamplerVoiceWaveformBlocksParam>(header);
+         if (param == nullptr) {
+@@ -1410,6 +1523,18 @@ s32 ApplySamplerParam(Voice& voice, const OrbisNgs2VoiceParamHeader* header) {
+             entry.skip = block.numSkipSamples;
+             entry.samples = block.numSamples;
+             entry.user_data = block.userData;
++            if (std::getenv("SHADPS4_HTL_COMPAT")) {
++                static u32 logged_blocks = 0;
++                if (logged_blocks++ < 16 && entry.size >= 4) {
++                    u32 first{};
++                    std::memcpy(&first, entry.data, sizeof(first));
++                    LOG_INFO(
++                        Lib_Ngs2,
++                        "HTL block base={:#x} offset={} bytes={} skip={} samples={} first={:#x}",
++                        reinterpret_cast<uintptr_t>(entry.base), block.dataOffset, entry.size,
++                        entry.skip, entry.samples, first);
++                }
++            }
+             sampler.queue.push_back(entry);
+         }
+         // Bit 0 announces that more blocks follow; titles end the list with an empty call.
+@@ -1673,6 +1798,21 @@ void DetachRack(System& system, const Rack& rack) {
+ 
+ void ReleaseRack(Registry& registry, Rack& rack) {
+     for (const auto& voice : rack.voices) {
++        FinishVoice(*voice);
++        for (auto& state : voice->user_fx2) {
++            auto& module = rack.modules[state.module];
++            const auto& option = *module.user_fx2;
++            if (option.cleanupHandler) {
++                OrbisNgs2UserFx2CleanupContext context{};
++                context.common = module.common.data();
++                context.param = state.param.data();
++                context.work = state.work.data();
++                context.userData = option.userData;
++                context.maxVoices = u32(rack.voices.size());
++                context.voiceIndex = voice->index;
++                CallUserFx2(option.cleanupHandler, context);
++            }
++        }
+         registry.handles.erase(reinterpret_cast<OrbisNgs2Handle>(voice.get()));
+     }
+     registry.handles.erase(reinterpret_cast<OrbisNgs2Handle>(&rack));
+@@ -1709,8 +1849,8 @@ s32 SystemCreate(const OrbisNgs2SystemOption* option, const OrbisNgs2ContextBuff
+     }
+     char name[ORBIS_NGS2_SYSTEM_NAME_LENGTH + 1]{};
+     std::memcpy(name, system->option.name, ORBIS_NGS2_SYSTEM_NAME_LENGTH);
+-    GetTrace().Line("SYS create S%u name='%s' flags=%x maxGrain=%u grain=%u rate=%u", system->serial,
+-                    name, system->option.flags, system->option.maxGrainSamples,
++    GetTrace().Line("SYS create S%u name='%s' flags=%x maxGrain=%u grain=%u rate=%u",
++                    system->serial, name, system->option.flags, system->option.maxGrainSamples,
+                     system->grain_samples, system->sample_rate);
+     LOG_INFO(Lib_Ngs2, "system '{}' created: {} Hz, {} samples per render", name,
+              system->sample_rate, system->grain_samples);
+@@ -1902,8 +2042,8 @@ s32 SystemGetInfo(OrbisNgs2Handle handle, OrbisNgs2SystemInfo* out_info, size_t
+     info.bufferInfo = system->buffer;
+     info.uid = system->serial;
+     info.minGrainSamples = 64;
+-    info.maxGrainSamples = system->option.maxGrainSamples != 0 ? system->option.maxGrainSamples
+-                                                                 : 512;
++    info.maxGrainSamples =
++        system->option.maxGrainSamples != 0 ? system->option.maxGrainSamples : 512;
+     info.rackCount = static_cast<u32>(system->racks.size());
+     info.renderCount = static_cast<s64>(system->render_count);
+     info.sampleRate = system->sample_rate;
+@@ -1982,10 +2122,25 @@ s32 RackCreate(OrbisNgs2Handle system_handle, u32 rack_id, const OrbisNgs2RackOp
+         std::memcpy(&rack->option, option, std::min<size_t>(option->size, sizeof(rack->option)));
+         if ((rack_id & 0xf000) == 0x4000 && option->size >= sizeof(OrbisNgs2CustomRackOption)) {
+             const auto* custom = reinterpret_cast<const OrbisNgs2CustomRackOption*>(option);
++            if (custom->stateSize <= 0x100000)
++                rack->custom_state_size = custom->stateSize;
+             for (u32 i = 0; i < custom->numModules && i < ORBIS_NGS2_CUSTOM_MAX_MODULES; ++i) {
+                 ModuleInfo module;
+                 module.id = custom->aModule[i].moduleId;
++                module.state_offset = custom->aModule[i].stateOffset;
+                 const auto* module_option = custom->aModule[i].option;
++                if (std::getenv("SHADPS4_HTL_FX2") && module.id == 0x1f && module_option &&
++                    module_option->size >= sizeof(OrbisNgs2CustomUserFx2ModuleOption)) {
++                    const auto& fx =
++                        *reinterpret_cast<const OrbisNgs2CustomUserFx2ModuleOption*>(module_option);
++                    if (fx.commonSize <= 0x100000 && fx.paramSize <= 0x100000 &&
++                        fx.workSize <= 0x100000 && module.state_offset <= rack->custom_state_size &&
++                        custom->aModule[i].stateSize <=
++                            rack->custom_state_size - module.state_offset) {
++                        module.user_fx2 = fx;
++                        module.common.resize(fx.commonSize);
++                    }
++                }
+                 if (module.id == ModuleDelay && module_option != nullptr &&
+                     module_option->size >= sizeof(OrbisNgs2CustomDelayModuleOption)) {
+                     module.delay_max_ms =
+@@ -2005,6 +2160,30 @@ s32 RackCreate(OrbisNgs2Handle system_handle, u32 rack_id, const OrbisNgs2RackOp
+         auto voice = std::make_unique<Voice>();
+         voice->rack = rack.get();
+         voice->index = i;
++        for (size_t m = 0; m < rack->modules.size(); ++m) {
++            auto& module = rack->modules[m];
++            if (!module.user_fx2)
++                continue;
++            const auto& fx = *module.user_fx2;
++            UserFx2State state;
++            state.module = m;
++            state.param.resize(fx.paramSize);
++            state.work.resize(fx.workSize);
++            voice->custom_state.resize(rack->custom_state_size);
++            if (fx.setupHandler) {
++                OrbisNgs2UserFx2SetupContext context{};
++                context.common = module.common.data();
++                context.param = state.param.data();
++                context.work = state.work.data();
++                context.userData = fx.userData;
++                context.maxVoices = max_voices;
++                context.voiceIndex = i;
++                const s32 status = CallUserFx2(fx.setupHandler, context);
++                if (status < 0)
++                    return status;
++            }
++            voice->user_fx2.push_back(std::move(state));
++        }
+         voice->ports.resize(max_ports);
+         for (auto& port : voice->ports) {
+             port.gain.fill(-1.0f);
+@@ -2271,8 +2450,8 @@ s32 VoiceGetPortInfo(OrbisNgs2Handle handle, u32 port_index, OrbisNgs2VoicePortI
+     return ORBIS_OK;
+ }
+ 
+-s32 VoiceGetMatrixInfo(OrbisNgs2Handle handle, u32 matrix_index,
+-                       OrbisNgs2VoiceMatrixInfo* out_info, size_t size) {
++s32 VoiceGetMatrixInfo(OrbisNgs2Handle handle, u32 matrix_index, OrbisNgs2VoiceMatrixInfo* out_info,
++                       size_t size) {
+     auto& registry = GetRegistry();
+     std::scoped_lock lock{registry.mutex};
+     auto* voice = Lookup<Voice>(registry, handle, HandleType::Voice);
+diff --git a/shadps4-arm64-main/src/core/libraries/ngs2/ngs2_waveform.h b/shadps4-arm64-main/src/core/libraries/ngs2/ngs2_waveform.h
+new file mode 100644
+index 0000000..420c9c2
+--- /dev/null
++++ b/shadps4-arm64-main/src/core/libraries/ngs2/ngs2_waveform.h
+@@ -0,0 +1,232 @@
++// SPDX-License-Identifier: GPL-2.0-or-later
++#pragma once
++
++#include <algorithm>
++#include <array>
++#include <cstring>
++#include <limits>
++#include <optional>
++#include <span>
++#include "common/types.h"
++extern "C" {
++#include <libatrac9.h>
++}
++
++namespace Libraries::Ngs2::Waveform {
++
++struct Format {
++    u32 type{}, channels{}, rate{}, config{}, delay{};
++};
++struct Layout {
++    u32 bytes{}, samples{}, units{1}, delay{};
++};
++struct Parsed {
++    Format format;
++    Layout layout;
++    u32 offset{}, bytes{}, samples{}, loop_begin{}, loop_end{};
++};
++struct Block {
++    u32 offset{}, bytes{}, skip{}, samples{};
++};
++
++inline u16 Le16(const u8* p) {
++    return u16(p[0]) | (u16(p[1]) << 8);
++}
++inline u32 Le32(const u8* p) {
++    return u32(p[0]) | (u32(p[1]) << 8) | (u32(p[2]) << 16) | (u32(p[3]) << 24);
++}
++inline u32 Be32(const u8* p) {
++    return (u32(p[0]) << 24) | (u32(p[1]) << 16) | (u32(p[2]) << 8) | u32(p[3]);
++}
++
++inline std::optional<Layout> Describe(const Format& format) {
++    if (!format.channels || format.channels > 8 || !format.rate || format.rate > 384000)
++        return {};
++    if (format.type == 0x40) {
++        // LibAtrac9's configuration reader indexes a six-entry channel table directly.
++        if ((format.config >> 24) != 0xfe || ((format.config >> 17) & 7) >= 6 ||
++            (format.config & 0x10000))
++            return {};
++        std::array<u8, 4> config{u8(format.config >> 24), u8(format.config >> 16),
++                                 u8(format.config >> 8), u8(format.config)};
++        void* decoder = Atrac9GetHandle();
++        if (!decoder)
++            return {};
++        Atrac9CodecInfo info{};
++        const bool valid = Atrac9InitDecoder(decoder, config.data()) == 0 &&
++                           Atrac9GetCodecInfo(decoder, &info) == 0 &&
++                           info.channels == format.channels && info.samplingRate == format.rate &&
++                           info.superframeSize > 0 && info.frameSamples > 0 &&
++                           info.framesInSuperframe > 0;
++        Atrac9ReleaseHandle(decoder);
++        if (!valid)
++            return {};
++        return Layout{u32(info.superframeSize), u32(info.frameSamples * info.framesInSuperframe),
++                      u32(info.framesInSuperframe), u32(info.frameSamples)};
++    }
++    u32 bytes = 0;
++    switch (format.type) {
++    case 0x10:
++    case 0x11:
++        bytes = 1;
++        break;
++    case 0x12:
++    case 0x13:
++        bytes = 2;
++        break;
++    case 0x14:
++    case 0x15:
++        bytes = 3;
++        break;
++    case 0x16:
++    case 0x17:
++    case 0x18:
++    case 0x19:
++        bytes = 4;
++        break;
++    case 0x1a:
++    case 0x1b:
++        bytes = 8;
++        break;
++    default:
++        return {};
++    }
++    return Layout{bytes * format.channels, 1, 1, 0};
++}
++
++// Chunk lengths are checked before making subspans. Outputs are published only on success.
++inline std::optional<Parsed> Parse(std::span<const u8> input) {
++    if (input.size() < 12 || std::memcmp(input.data(), "RIFF", 4) ||
++        std::memcmp(input.data() + 8, "WAVE", 4))
++        return {};
++    const u64 end = u64(Le32(input.data() + 4)) + 8;
++    if (end < 12 || end > input.size() || end > std::numeric_limits<u32>::max())
++        return {};
++    std::span<const u8> fmt, fact, smpl, audio;
++    u32 audio_offset = 0;
++    for (u64 at = 12; at < end;) {
++        if (end - at < 8)
++            return {};
++        const auto* header = input.data() + at;
++        const u32 length = Le32(header + 4);
++        if (length > end - at - 8)
++            return {};
++        const auto chunk = input.subspan(size_t(at + 8), length);
++        if (!std::memcmp(header, "fmt ", 4)) {
++            if (!fmt.empty())
++                return {};
++            fmt = chunk;
++        } else if (!std::memcmp(header, "data", 4)) {
++            if (!audio.empty())
++                return {};
++            audio = chunk;
++            audio_offset = u32(at + 8);
++        } else if (!std::memcmp(header, "fact", 4)) {
++            fact = chunk;
++        } else if (!std::memcmp(header, "smpl", 4)) {
++            smpl = chunk;
++        }
++        at += 8 + u64(length) + (length & 1);
++        if (at > end)
++            return {};
++    }
++    if (fmt.size() < 16 || audio.empty())
++        return {};
++    Parsed parsed{};
++    auto& format = parsed.format;
++    format.channels = Le16(fmt.data() + 2);
++    format.rate = Le32(fmt.data() + 4);
++    const u16 bits = Le16(fmt.data() + 14);
++    u16 tag = Le16(fmt.data());
++    if (tag == 0xfffe) {
++        if (fmt.size() < 40 || Le16(fmt.data() + 16) < 22 ||
++            u32(Le16(fmt.data() + 16)) + 18 > fmt.size())
++            return {};
++        constexpr std::array<u8, 16> At9Guid{0xd2, 0x42, 0xe1, 0x47, 0xba, 0x36, 0x8d, 0x4d,
++                                             0x88, 0xfc, 0x61, 0x65, 0x4f, 0x8c, 0x83, 0x6c};
++        constexpr std::array<u8, 12> PcmGuidTail{0, 0,    0x10, 0,    0x80, 0,
++                                                 0, 0xaa, 0,    0x38, 0x9b, 0x71};
++        if (!std::memcmp(fmt.data() + 24, At9Guid.data(), At9Guid.size())) {
++            if (fmt.size() < 52 || Le16(fmt.data() + 16) < 34 || Le32(fmt.data() + 40) != 1)
++                return {};
++            format.type = 0x40;
++            format.config = Be32(fmt.data() + 44);
++        } else if (!std::memcmp(fmt.data() + 28, PcmGuidTail.data(), PcmGuidTail.size())) {
++            const u32 subtag = Le32(fmt.data() + 24);
++            if (subtag != 1 && subtag != 3)
++                return {};
++            tag = u16(subtag);
++        } else {
++            return {};
++        }
++    }
++    if (!format.type) {
++        if (tag == 1) {
++            switch (bits) {
++            case 8:
++                format.type = 0x11;
++                break;
++            case 16:
++                format.type = 0x12;
++                break;
++            case 24:
++                format.type = 0x14;
++                break;
++            case 32:
++                format.type = 0x16;
++                break;
++            default:
++                return {};
++            }
++        } else if (tag == 3 && (bits == 32 || bits == 64)) {
++            format.type = bits == 32 ? 0x18 : 0x1a;
++        } else {
++            return {};
++        }
++    }
++    const auto layout = Describe(format);
++    if (!layout || Le16(fmt.data() + 12) != layout->bytes || audio.size() % layout->bytes)
++        return {};
++    parsed.layout = *layout;
++    format.delay =
++        format.type == 0x40 ? (fact.size() >= 12 ? Le32(fact.data() + 8) : layout->delay) : 0;
++    const u64 available = u64(audio.size() / layout->bytes) * layout->samples;
++    if (format.delay >= available)
++        return {};
++    const u64 samples = fact.size() >= 4 ? Le32(fact.data()) : available - format.delay;
++    if (!samples || samples > available - format.delay || samples > std::numeric_limits<u32>::max())
++        return {};
++    parsed.offset = audio_offset;
++    parsed.bytes = u32(audio.size());
++    parsed.samples = u32(samples);
++    if (smpl.size() >= 60 && Le32(smpl.data() + 28) == 1 && Le32(smpl.data() + 40) == 0) {
++        const u64 begin = Le32(smpl.data() + 44);
++        const u64 finish = u64(Le32(smpl.data() + 48)) + 1;
++        if (begin >= format.delay && finish > begin && finish - format.delay <= samples) {
++            parsed.loop_begin = u32(begin - format.delay);
++            parsed.loop_end = u32(finish - format.delay);
++        }
++    }
++    return parsed;
++}
++
++inline std::optional<Block> CalculateBlock(const Format& format, u32 start, u32 count) {
++    const auto layout = Describe(format);
++    if (!layout || !count)
++        return {};
++    const u64 sample = u64(start) + format.delay;
++    u64 first = sample / layout->samples;
++    // A preceding superframe warms the ATRAC9 overlap for a seek into the stream.
++    if (format.type == 0x40 && first)
++        --first;
++    const u64 skip = sample - first * layout->samples;
++    const u64 units = (skip + count + layout->samples - 1) / layout->samples;
++    const u64 offset = first * layout->bytes;
++    const u64 bytes = units * layout->bytes;
++    constexpr u64 Max = std::numeric_limits<u32>::max();
++    if (offset > Max || bytes > Max || skip > Max || offset + bytes > Max)
++        return {};
++    return Block{u32(offset), u32(bytes), u32(skip), count};
++}
++
++} // namespace Libraries::Ngs2::Waveform
+diff --git a/shadps4-arm64-main/src/core/libraries/videoout/driver.cpp b/shadps4-arm64-main/src/core/libraries/videoout/driver.cpp
+index edef78b..837c9d4 100644
+--- a/shadps4-arm64-main/src/core/libraries/videoout/driver.cpp
++++ b/shadps4-arm64-main/src/core/libraries/videoout/driver.cpp
+@@ -211,8 +211,9 @@ int VideoOutDriver::RegisterBuffers(VideoOutPort* port, s32 startIndex, void* co
+         port->flip_labels.ResetBuffer(static_cast<s32>(startIndex + i));
+         port->SignalVoLabel();
+ 
+-        // Social screen buffers are never presented, the renderer has no business with them.
+-        if (port != &social_port) {
++        if (port != &social_port ||
++            (std::getenv("SHADPS4_SOCIAL_PREVIEW") &&
++             group.attrib.pixel_format != PixelFormat::YCbCr420Bt709)) {
+             presenter->RegisterVideoOutSurface(group, address);
+         }
+         LOG_INFO(Lib_VideoOut, "buffers[{}] = {:#x}", i + startIndex, address);
+@@ -412,9 +413,32 @@ bool VideoOutDriver::SubmitFlip(VideoOutPort* port, s32 index, s64 flip_arg,
+     }
+ 
+     if (port == &social_port) {
+-        // Nothing displays the TV image while the headset is in use, so the flip only has to
+-        // complete from the guest's point of view.
+-        FinishFlip(port, index, flip_arg, is_eop, lock_generation);
++        if (index >= 0 && std::getenv("SHADPS4_SOCIAL_PREVIEW")) {
++            auto capture = [=, this]() {
++                const auto& buffer = port->buffer_slots[index];
++                const auto& group = port->groups[buffer.group_index];
++                if (group.attrib.pixel_format == PixelFormat::YCbCr420Bt709) {
++                    // This path captures RGB targets. Keep social timing intact until a
++                    // two-plane YCbCr converter is provided; the labelled crop stays visible.
++                    static bool reported = false;
++                    if (!reported) {
++                        reported = true;
++                        LOG_WARNING(Lib_VideoOut, "YCbCr social output is not captured; using the left-eye preview");
++                    }
++                    FinishFlip(port, index, flip_arg, is_eop, lock_generation);
++                    return;
++                }
++                LOG_DEBUG(Lib_VideoOut, "Social frame {} at {:#x}", index, buffer.address_left);
++                presenter->CaptureSocialFrame(group, buffer.address_left, [=, this]() {
++                    FinishFlip(port, index, flip_arg, is_eop, lock_generation);
++                });
++            };
++            if (is_eop)
++                capture();
++            else
++                liverpool->SendCommand(capture);
++        } else
++            FinishFlip(port, index, flip_arg, is_eop, lock_generation);
+         return true;
+     }
+ 
+@@ -517,9 +541,8 @@ void VideoOutDriver::SubmitHmdFrameInternal(VideoOutPort* port, const HmdFrame&
+                                             std::chrono::steady_clock::time_point handed_over) {
+     u32 eye_width = 0;
+     u32 eye_height = 0;
+-    const Vulkan::HmdFrames frames =
+-        presenter->PrepareHmdFrame(hmd_frame.eye_textures, hmd_frame.fov, frame_id, eye_width,
+-                                   eye_height);
++    const Vulkan::HmdFrames frames = presenter->PrepareHmdFrame(
++        hmd_frame.eye_textures, hmd_frame.fov, hmd_frame.eye_uv, frame_id, eye_width, eye_height);
+     if (!frames) {
+         // Same as regular flips: retry once the current graphics task yields.
+         liverpool->EnqueueCommand([=, this] {
+diff --git a/shadps4-arm64-main/src/core/libraries/videoout/video_out.h b/shadps4-arm64-main/src/core/libraries/videoout/video_out.h
+index cf31621..4b18f3c 100644
+--- a/shadps4-arm64-main/src/core/libraries/videoout/video_out.h
++++ b/shadps4-arm64-main/src/core/libraries/videoout/video_out.h
+@@ -146,6 +146,7 @@ s32 PS4_SYSV_ABI sceVideoOutAdjustColor(s32 handle, const SceVideoOutColorSettin
+ /// One stereo frame handed to the headset by the HMD reprojection.
+ struct HmdFrame {
+     std::array<AmdGpu::Image, 2> eye_textures; ///< Guest texture descriptors, left then right.
++    std::array<std::array<float, 4>, 2> eye_uv{{{1.f, 1.f, 0.f, 0.f}, {1.f, 1.f, 0.f, 0.f}}};
+     Core::Vr::Fov fov;                         ///< Field of view the eyes were rendered with.
+     /// Head pose used for rendering: in tracker space as the title hands it in, in the host's
+     /// space once the frame is on its way to the display.
+diff --git a/shadps4-arm64-main/src/core/libraries/vr_tracker/vr_tracker.cpp b/shadps4-arm64-main/src/core/libraries/vr_tracker/vr_tracker.cpp
+index 0e772a2..7e5e410 100644
+--- a/shadps4-arm64-main/src/core/libraries/vr_tracker/vr_tracker.cpp
++++ b/shadps4-arm64-main/src/core/libraries/vr_tracker/vr_tracker.cpp
+@@ -4,6 +4,8 @@
+ #include <algorithm>
+ #include <array>
+ #include <atomic>
++#include <cstdlib>
++#include <cstring>
+ #include <mutex>
+ #include <optional>
+ #include <vector>
+@@ -150,6 +152,22 @@ s32 PS4_SYSV_ABI sceVrTrackerInit(const OrbisVrTrackerInitParam* param) {
+     if (g_library_initialized) {
+         return ORBIS_VR_TRACKER_ERROR_ALREADY_INITIALIZED;
+     }
++    if (param == nullptr) {
++        return ORBIS_VR_TRACKER_ERROR_ARGUMENT_INVALID;
++    }
++    OrbisVrTrackerInitParam legacy{};
++    if (param->size == 144 && std::getenv("SHADPS4_HTL_COMPAT")) {
++        const auto* bytes = reinterpret_cast<const u8*>(param);
++        std::memcpy(&legacy, bytes, 40);
++        legacy.size = sizeof(legacy);
++        std::memcpy(reinterpret_cast<u8*>(&legacy) + 0x48, bytes + 0x40, 0x38);
++        legacy.calibration_settings = {};
++        legacy.calibration_settings.move_position = legacy.direct_memory_onion_size == 0x800000
++                                                        ? ORBIS_VR_TRACKER_CALIBRATION_AUTO
++                                                        : ORBIS_VR_TRACKER_CALIBRATION_MANUAL;
++        param = &legacy;
++        LOG_INFO(Lib_VrTracker, "HTL legacy tracker init translated: 144 -> 128 bytes");
++    }
+ 
+     // Calculate correct onion size for parameter checks
+     u32 required_onion_size = ORBIS_VR_TRACKER_BASE_ONION_SIZE;
+@@ -347,6 +365,21 @@ s32 PS4_SYSV_ABI sceVrTrackerGetResult(const OrbisVrTrackerGetResultParam* param
+         return ORBIS_VR_TRACKER_ERROR_ARGUMENT_INVALID;
+     }
+ 
++    if (std::getenv("SHADPS4_HTL_COMPAT")) {
++        static std::atomic<u32> samples{};
++        if (samples.fetch_add(1) < 4) {
++            LOG_INFO(Lib_VrTracker,
++                     "HTL result caller={:#x} output={:#x} bytes={} eye offsets={}/{}/{}",
++                     reinterpret_cast<uintptr_t>(__builtin_return_address(0)),
++                     reinterpret_cast<uintptr_t>(result), sizeof(*result),
++                     offsetof(OrbisVrTrackerResultData, hmd_info) +
++                         offsetof(OrbisVrTrackerHmdInfo, device_pose),
++                     offsetof(OrbisVrTrackerResultData, hmd_info) +
++                         offsetof(OrbisVrTrackerHmdInfo, left_eye_pose),
++                     offsetof(OrbisVrTrackerResultData, hmd_info) +
++                         offsetof(OrbisVrTrackerHmdInfo, right_eye_pose));
++        }
++    }
+     const s32 handle = param->handle;
+     const bool is_hmd = handle == g_hmd_handle;
+     const auto pad_registration = FindPad(handle);
+@@ -372,12 +405,13 @@ s32 PS4_SYSV_ABI sceVrTrackerGetResult(const OrbisVrTrackerGetResultParam* param
+ 
+     static std::atomic<u32> result_calls{};
+     if (const u32 call = result_calls.fetch_add(1); call < 4 || call % 1200 == 0) {
+-        LOG_DEBUG(Lib_VrTracker,
+-                  "call {}: handle = {:#x}, result_type = {}, prediction_time = {}, orientation_type "
+-                  "= {}, usage_type = {}, position = ({:.3f}, {:.3f}, {:.3f})",
+-                  call, handle, static_cast<u32>(param->result_type), param->prediction_time,
+-                  static_cast<u32>(param->orientation_type), static_cast<u32>(param->usage_type),
+-                  state.pose.position.x, state.pose.position.y, state.pose.position.z);
++        LOG_INFO(
++            Lib_VrTracker,
++            "call {}: handle = {:#x}, result_type = {}, prediction_time = {}, orientation_type "
++            "= {}, usage_type = {}, position = ({:.3f}, {:.3f}, {:.3f})",
++            call, handle, static_cast<u32>(param->result_type), param->prediction_time,
++            static_cast<u32>(param->orientation_type), static_cast<u32>(param->usage_type),
++            state.pose.position.x, state.pose.position.y, state.pose.position.z);
+     }
+ 
+     // The host already predicts poses for the moment its display lights up, which replaces the
+@@ -454,7 +488,8 @@ s32 PS4_SYSV_ABI sceVrTrackerGpuSubmit(const OrbisVrTrackerGpuSubmitParam* param
+         // Impossible to submit valid data here since sceCameraGetFrameData returns an error.
+         return ORBIS_VR_TRACKER_ERROR_ARGUMENT_INVALID;
+     }
+-    if (param == nullptr || param->size != sizeof(OrbisVrTrackerGpuSubmitParam)) {
++    if (param == nullptr || (param->size != sizeof(OrbisVrTrackerGpuSubmitParam) &&
++                             !(param->size == 0x228 && std::getenv("SHADPS4_HTL_COMPAT")))) {
+         return ORBIS_VR_TRACKER_ERROR_ARGUMENT_INVALID;
+     }
+ 
+diff --git a/shadps4-arm64-main/src/core/signals.cpp b/shadps4-arm64-main/src/core/signals.cpp
+index eee2ee4..884ace9 100644
+--- a/shadps4-arm64-main/src/core/signals.cpp
++++ b/shadps4-arm64-main/src/core/signals.cpp
+@@ -164,6 +164,28 @@ static void LogFault(const EXCEPTION_POINTERS* pExp) {
+                  "r15 {:#x}",
+                  context.R8, context.R9, context.R10, context.R11, context.R12, context.R13,
+                  context.R14, context.R15);
++    if (std::getenv("SHADPS4_HTL_COMPAT")) {
++        // Restricted to the title's mapped address range. Preserve assertion text locally.
++        for (const u64 pointer : {context.Rax, context.Rdi}) {
++            MEMORY_BASIC_INFORMATION region{};
++            if (pointer < 0x800000000 || pointer >= 0x900000000 ||
++                VirtualQuery(reinterpret_cast<const void*>(pointer), &region, sizeof(region)) ==
++                    0 ||
++                region.State != MEM_COMMIT || (region.Protect & (PAGE_NOACCESS | PAGE_GUARD)))
++                continue;
++            const auto end =
++                std::min<u64>(reinterpret_cast<uintptr_t>(region.BaseAddress) + region.RegionSize,
++                              pointer + 1024);
++            std::string ascii, wide;
++            for (u64 at = pointer; at < end; ++at) {
++                const auto value = *reinterpret_cast<const u8*>(at);
++                ascii += value >= 32 && value < 127 ? static_cast<char>(value) : '.';
++                if ((at - pointer) % 2 == 0)
++                    wide += value >= 32 && value < 127 ? static_cast<char>(value) : '.';
++            }
++            LOG_CRITICAL(Debug, "HTL trap text at {:#x}: ASCII={} UTF16={}", pointer, ascii, wide);
++        }
++    }
+     // Up to 8 KB of the stack, as far as it goes.
+     MEMORY_BASIC_INFORMATION stack{};
+     if (VirtualQuery(reinterpret_cast<const void*>(context.Rsp), &stack, sizeof(stack)) == 0 ||
+diff --git a/shadps4-arm64-main/src/core/vr/htl_diagnostics.h b/shadps4-arm64-main/src/core/vr/htl_diagnostics.h
+new file mode 100644
+index 0000000..a0d43fd
+--- /dev/null
++++ b/shadps4-arm64-main/src/core/vr/htl_diagnostics.h
+@@ -0,0 +1,22 @@
++// SPDX-License-Identifier: GPL-2.0-or-later
++#pragma once
++#include <atomic>
++#include <chrono>
++#include <cstdlib>
++#include <filesystem>
++namespace Core::Vr {
++inline std::atomic_bool htl_sync_gpu{}, htl_snapshot_constants{};
++inline void PollHtlDiagnostics() {
++    static const bool enabled = std::getenv("SHADPS4_HTL_COMPAT") != nullptr;
++    if (!enabled)
++        return;
++    static auto next = std::chrono::steady_clock::time_point{};
++    const auto now = std::chrono::steady_clock::now();
++    if (now < next)
++        return;
++    next = now + std::chrono::seconds(1);
++    std::error_code error;
++    htl_sync_gpu = std::filesystem::exists("user/htl-sync-gpu", error);
++    htl_snapshot_constants = std::filesystem::exists("user/htl-snapshot-constants", error);
++}
++} // namespace Core::Vr
+diff --git a/shadps4-arm64-main/src/core/vr/social_preview.h b/shadps4-arm64-main/src/core/vr/social_preview.h
+new file mode 100644
+index 0000000..25baf45
+--- /dev/null
++++ b/shadps4-arm64-main/src/core/vr/social_preview.h
+@@ -0,0 +1,50 @@
++// SPDX-License-Identifier: GPL-2.0-or-later
++#pragma once
++#include <algorithm>
++#include <array>
++#include <chrono>
++#include <mutex>
++#include <vector>
++#include "common/types.h"
++namespace Core::Vr {
++struct SocialPreviewFrame {
++    u32 width{}, height{};
++    u64 serial{};
++    bool actual{};
++    std::vector<u8> rgba;
++};
++inline std::mutex social_preview_mutex;
++inline SocialPreviewFrame social_preview_frame;
++inline std::chrono::steady_clock::time_point social_actual_until;
++inline void PublishSocialPreview(const std::vector<u8>& rgba, u32 width, u32 height,
++                                 std::array<float, 4> uv, bool actual = false) {
++    if (!width || !height || rgba.size() < static_cast<size_t>(width) * height * 4)
++        return;
++    const u32 x = std::min(width - 1, static_cast<u32>(width * uv[2]));
++    const u32 y = std::min(height - 1, static_cast<u32>(height * uv[3]));
++    u32 w = std::clamp(static_cast<u32>(width * uv[0]), 1u, width - x);
++    u32 h = std::clamp(static_cast<u32>(height * uv[1]), 1u, height - y);
++    u32 top = y;
++    if (!actual && h > w * 9 / 16) {
++        const u32 cropped = std::max(1u, w * 9 / 16);
++        top += (h - cropped) / 2;
++        h = cropped;
++    }
++    SocialPreviewFrame frame;
++    frame.width = w;
++    frame.height = h;
++    frame.actual = actual;
++    frame.rgba.resize(static_cast<size_t>(w) * h * 4);
++    for (u32 row = 0; row < h; ++row)
++        std::copy_n(rgba.data() + (static_cast<size_t>(top + row) * width + x) * 4, w * 4,
++                    frame.rgba.data() + static_cast<size_t>(row) * w * 4);
++    std::scoped_lock lock(social_preview_mutex);
++    const auto now = std::chrono::steady_clock::now();
++    if (!actual && now < social_actual_until)
++        return;
++    if (actual)
++        social_actual_until = now + std::chrono::seconds(2);
++    frame.serial = social_preview_frame.serial + 1;
++    social_preview_frame = std::move(frame);
++}
++} // namespace Core::Vr
+diff --git a/shadps4-arm64-main/src/sdl_window.cpp b/shadps4-arm64-main/src/sdl_window.cpp
+index 7992ed3..2a6d7f4 100644
+--- a/shadps4-arm64-main/src/sdl_window.cpp
++++ b/shadps4-arm64-main/src/sdl_window.cpp
+@@ -22,13 +22,14 @@
+ #include "core/libraries/pad/pad.h"
+ #include "core/libraries/system/userservice.h"
+ #include "core/user_settings.h"
++#include "core/vr/social_preview.h"
++#include "core/vr/vr_runtime.h"
+ #include "imgui/renderer/imgui_core.h"
+ #include "input/controller.h"
+-#include "input/scripted_input.h"
+ #include "input/input_handler.h"
+ #include "input/input_mouse.h"
+ #include "input/pad_source.h"
+-#include "core/vr/vr_runtime.h"
++#include "input/scripted_input.h"
+ #include "sdl_window.h"
+ #include "video_core/renderdoc.h"
+ 
+@@ -144,6 +145,12 @@ WindowSDL::WindowSDL(s32 width_, s32 height_, Input::GameControllers* controller
+     }
+ 
+     SDL_SetWindowMinimumSize(window, 640, 360);
++    if (std::getenv("SHADPS4_SOCIAL_PREVIEW")) {
++        social_window = SDL_CreateWindow("Here They Lie - TV preview (synthetic left-eye crop)",
++                                         960, 540, SDL_WINDOW_RESIZABLE);
++        if (social_window)
++            social_renderer = SDL_CreateRenderer(social_window, "software");
++    }
+ 
+     bool error = false;
+     const SDL_DisplayID displayIndex = SDL_GetDisplayForWindow(window);
+@@ -283,7 +290,45 @@ WindowSDL::WindowSDL(s32 width_, s32 height_, Input::GameControllers* controller
+     }
+ }
+ 
+-WindowSDL::~WindowSDL() = default;
++WindowSDL::~WindowSDL() {
++    if (social_texture)
++        SDL_DestroyTexture(social_texture);
++    if (social_renderer)
++        SDL_DestroyRenderer(social_renderer);
++    if (social_window)
++        SDL_DestroyWindow(social_window);
++}
++void WindowSDL::UpdateSocialPreview() {
++    if (!social_renderer)
++        return;
++    Core::Vr::SocialPreviewFrame frame;
++    {
++        std::scoped_lock lock(Core::Vr::social_preview_mutex);
++        if (social_serial == Core::Vr::social_preview_frame.serial)
++            return;
++        frame = Core::Vr::social_preview_frame;
++    }
++    if (!frame.width || !frame.height)
++        return;
++    if (!social_texture || social_width != frame.width || social_height != frame.height) {
++        if (social_texture)
++            SDL_DestroyTexture(social_texture);
++        social_texture = SDL_CreateTexture(social_renderer, SDL_PIXELFORMAT_RGBA32,
++                                           SDL_TEXTUREACCESS_STREAMING, frame.width, frame.height);
++        social_width = frame.width;
++        social_height = frame.height;
++    }
++    if (!social_texture)
++        return;
++    SDL_UpdateTexture(social_texture, nullptr, frame.rgba.data(), frame.width * 4);
++    SDL_RenderClear(social_renderer);
++    SDL_RenderTexture(social_renderer, social_texture, nullptr, nullptr);
++    SDL_RenderPresent(social_renderer);
++    social_serial = frame.serial;
++    SDL_SetWindowTitle(social_window, frame.actual
++                                          ? "Here They Lie - actual TV/social output"
++                                          : "Here They Lie - TV preview (synthetic left-eye crop)");
++}
+ 
+ void WindowSDL::SetIcon(const std::filesystem::path& path) {
+ #ifdef ENABLE_BACHATA_RUNTIME
+@@ -322,12 +367,28 @@ void WindowSDL::SetIcon(const std::filesystem::path& path) {
+ 
+ void WindowSDL::WaitEvent() {
+     // Called on main thread
++    UpdateSocialPreview();
+     SDL_Event event;
+ 
+-    if (!SDL_WaitEvent(&event)) {
++    if (!SDL_WaitEventTimeout(&event, 16)) {
+         return;
+     }
+ 
++    if (social_window && event.type >= SDL_EVENT_WINDOW_FIRST &&
++        event.type <= SDL_EVENT_WINDOW_LAST &&
++        event.window.windowID == SDL_GetWindowID(social_window)) {
++        if (event.type == SDL_EVENT_WINDOW_CLOSE_REQUESTED) {
++            if (social_texture)
++                SDL_DestroyTexture(social_texture);
++            if (social_renderer)
++                SDL_DestroyRenderer(social_renderer);
++            SDL_DestroyWindow(social_window);
++            social_texture = nullptr;
++            social_renderer = nullptr;
++            social_window = nullptr;
++        }
++        return;
++    }
+     if (Libraries::Mouse::PushSDLEvent(event)) {
+         return;
+     }
+@@ -370,6 +431,7 @@ void WindowSDL::WaitEvent() {
+     case SDL_EVENT_GAMEPAD_SENSOR_UPDATE:
+         OnGamepadEvent(&event);
+         break;
++    case SDL_EVENT_WINDOW_CLOSE_REQUESTED:
+     case SDL_EVENT_QUIT:
+         is_open = false;
+         break;
+diff --git a/shadps4-arm64-main/src/sdl_window.h b/shadps4-arm64-main/src/sdl_window.h
+index 74526c6..b5280f3 100644
+--- a/shadps4-arm64-main/src/sdl_window.h
++++ b/shadps4-arm64-main/src/sdl_window.h
+@@ -11,6 +11,8 @@
+ 
+ struct SDL_Window;
+ struct SDL_Gamepad;
++struct SDL_Renderer;
++struct SDL_Texture;
+ union SDL_Event;
+ 
+ namespace Input {
+@@ -81,6 +83,7 @@ public:
+ 
+ private:
+     void OnResize();
++    void UpdateSocialPreview();
+     void OnKeyboardMouseInput(const SDL_Event* event);
+     void OnGamepadEvent(const SDL_Event* event);
+ 
+@@ -90,6 +93,11 @@ private:
+     Input::GameControllers controllers{};
+     WindowSystemInfo window_info{};
+     SDL_Window* window{};
++    SDL_Window* social_window{};
++    SDL_Renderer* social_renderer{};
++    SDL_Texture* social_texture{};
++    u32 social_width{}, social_height{};
++    u64 social_serial{};
+     bool is_shown{};
+     bool is_open{true};
+ };
+diff --git a/shadps4-arm64-main/src/video_core/host_shaders/post_process.frag b/shadps4-arm64-main/src/video_core/host_shaders/post_process.frag
+index c291f79..62695f1 100644
+--- a/shadps4-arm64-main/src/video_core/host_shaders/post_process.frag
++++ b/shadps4-arm64-main/src/video_core/host_shaders/post_process.frag
+@@ -3,7 +3,7 @@
+ 
+ #version 450
+ 
+-layout (location = 0) in vec2 uv;
++layout (location = 0) in vec2 in_uv;
+ layout (location = 0) out vec4 color;
+ 
+ layout (binding = 0) uniform sampler2D texSampler;
+@@ -24,6 +24,8 @@ layout (push_constant) uniform settings {
+     // picture is sharpened by sharpen_centre instead: where FSR 1 enlarged the title's scene.
+     float sharpen_centre;
+     float centre_radius;
++    float padding;
++    vec4 uv_transform;
+ } pp;
+ 
+ const float cutoff = 0.0031308, a = 1.055, b = 0.055, d = 12.92;
+@@ -37,14 +39,18 @@ vec3 gamma(vec3 rgb) {
+ 
+ // What goes to the display for the picture at a place.
+ vec3 shown(vec2 at) {
++    vec2 half_texel = 0.5 / vec2(textureSize(texSampler, 0));
++    at = clamp(at, pp.uv_transform.zw + half_texel,
++               pp.uv_transform.zw + pp.uv_transform.xy - half_texel);
+     vec3 rgb = textureLod(texSampler, at, 0.0).rgb;
+     return pp.hdr || pp.encoded_in ? rgb : gamma(rgb);
+ }
+ 
+ void main() {
++    vec2 uv = in_uv * pp.uv_transform.xy + pp.uv_transform.zw;
+     vec4 color_linear = texture(texSampler, uv);
+     vec3 here = pp.hdr || pp.encoded_in ? color_linear.rgb : gamma(color_linear.rgb);
+-    vec2 from_middle = uv * 2.0 - 1.0;
++    vec2 from_middle = in_uv * 2.0 - 1.0;
+     float sharpen = dot(from_middle, from_middle) < pp.centre_radius * pp.centre_radius
+                         ? pp.sharpen_centre
+                         : pp.sharpen;
+diff --git a/shadps4-arm64-main/src/video_core/renderer_vulkan/host_passes/pp_pass.cpp b/shadps4-arm64-main/src/video_core/renderer_vulkan/host_passes/pp_pass.cpp
+index 342f3c3..2666608 100644
+--- a/shadps4-arm64-main/src/video_core/renderer_vulkan/host_passes/pp_pass.cpp
++++ b/shadps4-arm64-main/src/video_core/renderer_vulkan/host_passes/pp_pass.cpp
+@@ -296,6 +296,9 @@ void PostProcessingPass::Render(vk::CommandBuffer cmdbuf, std::span<const Region
+     cmdbuf.beginRendering(rendering_info);
+     for (size_t i = 0; i < regions.size(); ++i) {
+         const Region& region = regions[i];
++        settings.uv_transform = region.uv_transform;
++        cmdbuf.pushConstants(*pipeline_layout, vk::ShaderStageFlagBits::eFragment, 0,
++                             sizeof(Settings), &settings);
+         cmdbuf.setViewport(0, vk::Viewport{
+                                   .x = static_cast<float>(region.area.offset.x),
+                                   .y = static_cast<float>(region.area.offset.y),
+diff --git a/shadps4-arm64-main/src/video_core/renderer_vulkan/host_passes/pp_pass.h b/shadps4-arm64-main/src/video_core/renderer_vulkan/host_passes/pp_pass.h
+index 6122257..87971ef 100644
+--- a/shadps4-arm64-main/src/video_core/renderer_vulkan/host_passes/pp_pass.h
++++ b/shadps4-arm64-main/src/video_core/renderer_vulkan/host_passes/pp_pass.h
+@@ -34,6 +34,8 @@ public:
+         /// scene, which leaves it crisp already (TitleUpscale). 0: no such part.
+         float sharpen_centre = 0.0f;
+         float centre_radius = 0.0f;
++        float padding = 0.0f;
++        std::array<float, 4> uv_transform{1.f, 1.f, 0.f, 0.f};
+     };
+ 
+     void Create(const Instance& instance, MasterSemaphore* master_semaphore,
+@@ -44,6 +46,7 @@ public:
+         vk::ImageView input;
+         vk::Rect2D area;
+         std::optional<vk::Rect2D> clip;
++        std::array<float, 4> uv_transform{1.f, 1.f, 0.f, 0.f};
+     };
+ 
+     // Frame marker: a row of black and white blocks stamped along the top-left edge of a frame.
+diff --git a/shadps4-arm64-main/src/video_core/renderer_vulkan/readconst_snapshot_diag.h b/shadps4-arm64-main/src/video_core/renderer_vulkan/readconst_snapshot_diag.h
+index 8411dcb..759fb15 100644
+--- a/shadps4-arm64-main/src/video_core/renderer_vulkan/readconst_snapshot_diag.h
++++ b/shadps4-arm64-main/src/video_core/renderer_vulkan/readconst_snapshot_diag.h
+@@ -1,3 +1,4 @@
++#include "core/vr/htl_diagnostics.h"
+ // SPDX-FileCopyrightText: Copyright 2026 shadPS4 Emulator Project
+ // SPDX-License-Identifier: GPL-2.0-or-later
+ 
+@@ -5,6 +6,8 @@
+ 
+ #include <bit>
+ #include <cmath>
++#include <cstdlib>
++#include <filesystem>
+ #include <span>
+ 
+ #include "common/types.h"
+@@ -30,9 +33,11 @@ inline constexpr u64 kDsrSkinnedVs27904a0c = 0x27904a0c;
+     // Re-enabled for the recip-refine verification round (2026-08-16): the
+     // snapshot bytes now also export the runtime-divisor dwords that feed the
+     // rcp-based integer-division emulation addressed in
+-    // docs/dsr-adreno830-vertex-explosion.md §6. Costs ~40 -> ~19 FPS while
++    // docs/dsr-adreno830-vertex-explosion.md Ã‚Â§6. Costs ~40 -> ~19 FPS while
+     // enabled; disable again for play builds.
+-    return ShouldIsolateReadConstSnapshot(pgm_hash, stage) && used_as_readconst && !is_written;
++    return (ShouldIsolateReadConstSnapshot(pgm_hash, stage) ||
++            (Core::Vr::htl_snapshot_constants.load(std::memory_order_relaxed))) &&
++           used_as_readconst && !is_written;
+ }
+ 
+ /// Float32 sanity of the ReadConst guest window. NaN/Inf while the mesh explodes
+diff --git a/shadps4-arm64-main/src/video_core/renderer_vulkan/vk_pipeline_cache.cpp b/shadps4-arm64-main/src/video_core/renderer_vulkan/vk_pipeline_cache.cpp
+index 238242f..1c7f716 100644
+--- a/shadps4-arm64-main/src/video_core/renderer_vulkan/vk_pipeline_cache.cpp
++++ b/shadps4-arm64-main/src/video_core/renderer_vulkan/vk_pipeline_cache.cpp
+@@ -313,7 +313,9 @@ PipelineCache::PipelineCache(const Instance& instance_, Scheduler& scheduler_,
+                               instance.GetDriverID() == vk::DriverId::eMesaKosmickrisp,
+         .needs_buffer_offsets = instance.StorageMinAlignment() > 4,
+         .needs_unorm_fixup = instance.GetDriverID() == vk::DriverId::eMesaKosmickrisp,
+-        .needs_clip_distance_emulation = instance.GetDriverID() == vk::DriverId::eNvidiaProprietary,
++        .needs_clip_distance_emulation =
++            instance.GetDriverID() == vk::DriverId::eNvidiaProprietary &&
++            std::getenv("SHADPS4_HTL_NATIVE_CLIP") == nullptr,
+         .needs_bit_preserving_buffer0_loads =
+             ShouldForceBitPreservingBuffer0Loads(instance_.GetModelName()),
+         .supports_shader_stencil_export = instance_.IsShaderStencilExportSupported(),
+@@ -367,8 +369,7 @@ const GraphicsPipeline* PipelineCache::GetGraphicsPipeline() {
+             }
+             if (const auto* fs = infos[u32(Shader::LogicalStage::Fragment)]) {
+                 LOG_INFO(Render_Vulkan, "Pipeline {:#x} resources fs buf={} img={} samp={}",
+-                         pipeline_hash, fs->buffers.size(), fs->images.size(),
+-                         fs->samplers.size());
++                         pipeline_hash, fs->buffers.size(), fs->images.size(), fs->samplers.size());
+             }
+             it.value() = std::make_unique<GraphicsPipeline>(
+                 instance, scheduler, desc_heap, profile, graphics_key, *pipeline_cache, infos,
+@@ -685,8 +686,8 @@ vk::ShaderModule PipelineCache::CompileModule(Shader::Info& info, Shader::Runtim
+     if (Shader::Backend::SPIRV::ShouldSplitFmaNoContraction(info.pgm_hash, info.stage) &&
+         EmulatorSettings.IsDumpShaders()) {
+         const auto scan = Shader::Backend::SPIRV::ScanSpirvFmaOps(spv);
+-        const bool survived = Shader::Backend::SPIRV::SplitFmaSurvivedBackend(scan) &&
+-                              scan.contraction_off > 0;
++        const bool survived =
++            Shader::Backend::SPIRV::SplitFmaSurvivedBackend(scan) && scan.contraction_off > 0;
+         using namespace Common::FS;
+         const auto dump_dir = GetUserPath(PathType::ShaderDir) / "dumps";
+         if (!std::filesystem::exists(dump_dir)) {
+@@ -801,8 +802,8 @@ std::optional<size_t> PipelineCache::Recognize(Program& program,
+         if (info.has_fetch_shader) {
+             const u32* code = Shader::Gcn::GetFetchShaderCode(info, info.fetch_shader_sgpr_base);
+             if (!fetch || code != seen.fetch_code || seen.fetch_words.empty() ||
+-                std::memcmp(code, seen.fetch_words.data(),
+-                            seen.fetch_words.size() * sizeof(u32)) != 0) {
++                std::memcmp(code, seen.fetch_words.data(), seen.fetch_words.size() * sizeof(u32)) !=
++                    0) {
+                 continue;
+             }
+         }
+@@ -898,8 +899,9 @@ PipelineCache::Result PipelineCache::GetProgram(Stage stage, LogicalStage l_stag
+                               "finds {} ({} of {} checks differed)",
+                               params.hash, stage, *seen, found, differed, checked);
+                 } else if (checked % 100000 == 0) {
+-                    LOG_INFO(Render_Vulkan, "Shader permutations recognized: {} checked, {} differed",
+-                             checked, differed);
++                    LOG_INFO(Render_Vulkan,
++                             "Shader permutations recognized: {} checked, {} differed", checked,
++                             differed);
+                 }
+             }
+             info.AddBindings(binding);
+diff --git a/shadps4-arm64-main/src/video_core/renderer_vulkan/vk_presenter.cpp b/shadps4-arm64-main/src/video_core/renderer_vulkan/vk_presenter.cpp
+index 27d6f3e..352745c 100644
+--- a/shadps4-arm64-main/src/video_core/renderer_vulkan/vk_presenter.cpp
++++ b/shadps4-arm64-main/src/video_core/renderer_vulkan/vk_presenter.cpp
+@@ -1,3 +1,5 @@
++#include "core/vr/htl_diagnostics.h"
++#include "core/vr/social_preview.h"
+ // SPDX-FileCopyrightText: Copyright 2024-2026 shadPS4 Emulator Project
+ // SPDX-License-Identifier: GPL-2.0-or-later
+ 
+@@ -1007,6 +1009,35 @@ static vk::Format GetFrameViewFormat(const Libraries::VideoOut::PixelFormat form
+     return {};
+ }
+ 
++void Presenter::CaptureSocialFrame(const Libraries::VideoOut::BufferAttributeGroup& attribute,
++                                   VAddr address, std::function<void()> completed) {
++    auto desc = VideoCore::TextureCache::ImageDesc{attribute, address};
++    const auto id = texture_cache.FindImage(desc);
++    texture_cache.UpdateImage(id);
++    auto& image = texture_cache.GetImage(id);
++    draw_scheduler.EndRendering();
++    const auto cmdbuf = draw_scheduler.CommandBuffer();
++    image.Transit(vk::ImageLayout::eTransferSrcOptimal, vk::AccessFlagBits2::eTransferRead, {},
++                  cmdbuf);
++    auto readbacks = std::make_shared<std::vector<ScreenshotReadback>>();
++    readbacks->emplace_back(instance, draw_scheduler, ScreenshotKind::GameOnly,
++                            std::vector<std::filesystem::path>{}, image.info.size.width,
++                            image.info.size.height, image.info.pixel_format, false);
++    CopyImageToReadback(cmdbuf, image.GetImage(), vk::ImageLayout::eTransferSrcOptimal,
++                        readbacks->back());
++    image.Transit(vk::ImageLayout::eShaderReadOnlyOptimal, vk::AccessFlagBits2::eShaderRead, {},
++                  cmdbuf);
++    draw_scheduler.DeferPriorityOperation([readbacks, completed = std::move(completed)]() {
++        std::vector<u8> rgba;
++        const auto& image = readbacks->front();
++        if (ConvertReadbackToRgba8(image, rgba))
++            Core::Vr::PublishSocialPreview(rgba, image.width, image.height, {1.f, 1.f, 0.f, 0.f},
++                                           true);
++        completed();
++    });
++    draw_scheduler.Flush();
++}
++
+ Frame* Presenter::PrepareFrame(const Libraries::VideoOut::BufferAttributeGroup& attribute,
+                                VAddr cpu_address) {
+     auto desc = VideoCore::TextureCache::ImageDesc{attribute, cpu_address};
+@@ -1102,8 +1133,10 @@ Frame* Presenter::PrepareFrame(const Libraries::VideoOut::BufferAttributeGroup&
+ }
+ 
+ HmdFrames Presenter::PrepareHmdFrame(std::span<const AmdGpu::Image, 2> eye_textures,
+-                                    const Core::Vr::Fov& fov, u32 frame_id,
+-                                    u32& eye_width, u32& eye_height) {
++                                     const Core::Vr::Fov& fov,
++                                     std::span<const std::array<float, 4>, 2> eye_uv, u32 frame_id,
++                                     u32& eye_width, u32& eye_height) {
++    Core::Vr::PollHtlDiagnostics();
+     // The guest hands the eyes over as plain textures; they were rendered as color targets, so
+     // the cache already holds their contents.
+     std::array<VideoCore::TextureCache::ImageDesc, 2> descs;
+@@ -1193,7 +1226,7 @@ HmdFrames Presenter::PrepareHmdFrame(std::span<const AmdGpu::Image, 2> eye_textu
+     ++logged_frames;
+ 
+     const auto& left_info = texture_cache.GetImage(image_ids[0]).info;
+-    eye_width = left_info.size.width;
++    eye_width = static_cast<u32>(left_info.size.width * eye_uv[0][0]);
+     eye_height = left_info.size.height;
+ 
+     // With a VR host attached the frame goes into one of its buffers instead of the window. A
+@@ -1299,10 +1332,19 @@ HmdFrames Presenter::PrepareHmdFrame(std::span<const AmdGpu::Image, 2> eye_textu
+         const char* value = std::getenv("SHADPS4_DBG_EYE_SCAN");
+         return value != nullptr ? static_cast<u32>(std::max(0, std::atoi(value))) : 0u;
+     }();
++    static const u32 preview_every = [] {
++        if (!std::getenv("SHADPS4_SOCIAL_PREVIEW")) {
++            return 0u;
++        }
++        const char* value = std::getenv("SHADPS4_SOCIAL_PREVIEW_EVERY");
++        return value ? static_cast<u32>(std::clamp(std::atoi(value), 0, 120)) : 4u;
++    }();
++    const bool diagnostic_scan = eye_scan_every > 0 && frame_id % eye_scan_every == 0;
++    const bool preview_scan = preview_every > 0 && frame_id % preview_every == 0;
+     std::shared_ptr<std::vector<ScreenshotReadback>> eye_scan;
+-    if (eye_scan_every > 0 && frame_id % eye_scan_every == 0 && !EyeScan::busy.exchange(true)) {
++    if ((diagnostic_scan || preview_scan) && !EyeScan::busy.exchange(true)) {
+         eye_scan = std::make_shared<std::vector<ScreenshotReadback>>();
+-        eye_scan->reserve(2);
++        eye_scan->reserve(3);
+     }
+     std::array<vk::ImageView, 2> eye_views;
+     for (u32 eye = 0; eye < 2; ++eye) {
+@@ -1317,7 +1359,7 @@ HmdFrames Presenter::PrepareHmdFrame(std::span<const AmdGpu::Image, 2> eye_textu
+         // that does, and that is the one to get ready for reading.
+         auto& image = texture_cache.GetImage(image_ids[eye]);
+         eye_views[eye] = *image.FindView(view_info).image_view;
+-        if (eye_scan) {
++        if (eye_scan && diagnostic_scan) {
+             image.Transit(vk::ImageLayout::eTransferSrcOptimal, vk::AccessFlagBits2::eTransferRead,
+                           {}, cmdbuf);
+             eye_scan->emplace_back(instance, draw_scheduler, ScreenshotKind::GameOnly,
+@@ -1340,6 +1382,7 @@ HmdFrames Presenter::PrepareHmdFrame(std::span<const AmdGpu::Image, 2> eye_textu
+                     .offset{.x = static_cast<s32>(eye * half_width), .y = 0},
+                     .extent{.width = half_width, .height = target.height},
+                 },
++                .uv_transform = eye_uv[eye],
+             };
+         }
+         return regions;
+@@ -1384,11 +1427,13 @@ HmdFrames Presenter::PrepareHmdFrame(std::span<const AmdGpu::Image, 2> eye_textu
+                                 .y = content.offset.y},
+                         .extent{.width = region.width, .height = content.extent.height},
+                     },
+-                    .clip = vk::Rect2D{
+-                        .offset{.x = content.offset.x + static_cast<s32>(region.clip_x),
+-                                .y = clip.offset.y},
+-                        .extent{.width = region.clip_width, .height = clip.extent.height},
+-                    },
++                    .clip =
++                        vk::Rect2D{
++                            .offset{.x = content.offset.x + static_cast<s32>(region.clip_x),
++                                    .y = clip.offset.y},
++                            .extent{.width = region.clip_width, .height = clip.extent.height},
++                        },
++                    .uv_transform = eye_uv[eye],
+                 };
+             };
+             const std::array regions{region_for(0), region_for(1)};
+@@ -1396,15 +1441,17 @@ HmdFrames Presenter::PrepareHmdFrame(std::span<const AmdGpu::Image, 2> eye_textu
+             pp_pass.Render(cmdbuf, std::span{regions}.first(count), *frame, hmd_settings);
+         } else if (spectator) {
+             const std::array regions{
+-                HostPasses::PostProcessingPass::Region{
+-                    .input = eye_views[0], .area = content, .clip = clip},
++                HostPasses::PostProcessingPass::Region{.input = eye_views[0],
++                                                       .area = content,
++                                                       .clip = clip,
++                                                       .uv_transform = eye_uv[0]},
+             };
+             pp_pass.Render(cmdbuf, regions, *frame, hmd_settings);
+         } else {
+             pp_pass.Render(cmdbuf, regions_for(*frame), *frame, hmd_settings,
+                            exported ? std::nullopt : std::optional<u32>{frame_id});
+         }
+-        if (exported && eye_scan) {
++        if (eye_scan && (exported || local == nullptr)) {
+             // What the headset's app gets, as the eye copy left it (in the general layout).
+             const auto copy_barrier = [&](vk::PipelineStageFlags2 src_stage,
+                                           vk::AccessFlags2 src_access,
+@@ -1453,14 +1500,55 @@ HmdFrames Presenter::PrepareHmdFrame(std::span<const AmdGpu::Image, 2> eye_textu
+         auto local_settings = hmd_settings;
+         local_settings.linear_out = 1;
+         hmd_pp_pass.Render(cmdbuf, regions_for(*local), *local, local_settings);
++#ifdef ENABLE_OPENXR_HOST
++        if (eye_scan && !exported) {
++            const auto barrier = [&](vk::PipelineStageFlags2 from_stage,
++                                     vk::AccessFlags2 from_access,
++                                     vk::PipelineStageFlags2 to_stage,
++                                     vk::AccessFlags2 to_access) {
++                const vk::ImageMemoryBarrier2 image_barrier{
++                    .srcStageMask=from_stage, .srcAccessMask=from_access,
++                    .dstStageMask=to_stage, .dstAccessMask=to_access,
++                    .oldLayout=vk::ImageLayout::eGeneral, .newLayout=vk::ImageLayout::eGeneral,
++                    .image=local->image,
++                    .subresourceRange{.aspectMask=vk::ImageAspectFlagBits::eColor,
++                                      .levelCount=1, .layerCount=1},
++                };
++                cmdbuf.pipelineBarrier2(vk::DependencyInfo{
++                    .imageMemoryBarrierCount=1, .pImageMemoryBarriers=&image_barrier});
++            };
++            barrier(vk::PipelineStageFlagBits2::eColorAttachmentOutput,
++                    vk::AccessFlagBits2::eColorAttachmentWrite,
++                    vk::PipelineStageFlagBits2::eTransfer, vk::AccessFlagBits2::eTransferRead);
++            eye_scan->emplace_back(instance,draw_scheduler,ScreenshotKind::GameOnly,
++                std::vector<std::filesystem::path>{},local->width,local->height,
++                Core::Vr::OpenXrHost::FrameFormat,false);
++            CopyImageToReadback(cmdbuf,local->image,vk::ImageLayout::eGeneral,eye_scan->back());
++            barrier(vk::PipelineStageFlagBits2::eTransfer,vk::AccessFlagBits2::eTransferRead,
++                    vk::PipelineStageFlagBits2::eAllCommands,vk::AccessFlagBits2::eMemoryRead);
++        }
++#endif
+         DebugState.output_resolution = {local->width, local->height};
+     }
+     DebugState.game_resolution = {eye_width * 2, eye_height};
+     if (eye_scan) {
+-        draw_scheduler.DeferPriorityOperation([eye_scan, frame_id]() {
+-            EyeScan::Look(*eye_scan, frame_id);
+-            EyeScan::busy = false;
+-        });
++        const std::array<float,4> preview_uv = !local && spectator
++            ? std::array<float,4>{1.f,1.f,0.f,0.f}
++            : std::array<float,4>{0.5f,1.f,0.f,0.f};
++        draw_scheduler.DeferPriorityOperation(
++            [eye_scan, frame_id, diagnostic_scan, preview_uv]() {
++                const size_t preview_index=diagnostic_scan?2:0;
++                if (std::getenv("SHADPS4_SOCIAL_PREVIEW") && eye_scan->size()>preview_index) {
++                    std::vector<u8> rgba;
++                    const auto& preview=(*eye_scan)[preview_index];
++                    if (ConvertReadbackToRgba8(preview, rgba))
++                        Core::Vr::PublishSocialPreview(rgba, preview.width, preview.height, preview_uv);
++                }
++                if (diagnostic_scan) {
++                    EyeScan::Look(*eye_scan, frame_id);
++                }
++                EyeScan::busy = false;
++            });
+     }
+ 
+     // Flush frame creation commands.
+diff --git a/shadps4-arm64-main/src/video_core/renderer_vulkan/vk_presenter.h b/shadps4-arm64-main/src/video_core/renderer_vulkan/vk_presenter.h
+index 2be4125..739d30a 100644
+--- a/shadps4-arm64-main/src/video_core/renderer_vulkan/vk_presenter.h
++++ b/shadps4-arm64-main/src/video_core/renderer_vulkan/vk_presenter.h
+@@ -1,3 +1,4 @@
++#include <functional>
+ // SPDX-FileCopyrightText: Copyright 2024 shadPS4 Emulator Project
+ // SPDX-License-Identifier: GPL-2.0-or-later
+ 
+@@ -111,13 +112,17 @@ public:
+ 
+     bool IsVideoOutSurface(const AmdGpu::ColorBuffer& color_buffer) const;
+ 
++    void CaptureSocialFrame(const Libraries::VideoOut::BufferAttributeGroup& attribute,
++                            VAddr cpu_address, std::function<void()> completed);
++
+     Frame* PrepareFrame(const Libraries::VideoOut::BufferAttributeGroup& attribute,
+                         VAddr cpu_address);
+ 
+     /// Composes the two eye images of a headset frame side by side into a presentation frame
+     /// and stamps it with `frame_id` so the host can match it to a head pose.
+     HmdFrames PrepareHmdFrame(std::span<const AmdGpu::Image, 2> eye_textures,
+-                              const Core::Vr::Fov& fov, u32 frame_id,
++                              const Core::Vr::Fov& fov,
++                              std::span<const std::array<float, 4>, 2> eye_uv, u32 frame_id,
+                               u32& eye_width, u32& eye_height);
+ 
+     /// Hands a frame made by PrepareHmdFrame to the VR host. Returns false for a frame that is
+diff --git a/shadps4-arm64-main/src/video_core/renderer_vulkan/vk_rasterizer.cpp b/shadps4-arm64-main/src/video_core/renderer_vulkan/vk_rasterizer.cpp
+index 7a284db..3ab1150 100644
+--- a/shadps4-arm64-main/src/video_core/renderer_vulkan/vk_rasterizer.cpp
++++ b/shadps4-arm64-main/src/video_core/renderer_vulkan/vk_rasterizer.cpp
+@@ -1,3 +1,4 @@
++#include "core/vr/htl_diagnostics.h"
+ // SPDX-FileCopyrightText: Copyright 2024-2026 shadPS4 Emulator Project
+ // SPDX-License-Identifier: GPL-2.0-or-later
+ 
+@@ -20,6 +21,7 @@
+ 
+ #include <array>
+ #include <bit>
++#include <filesystem>
+ 
+ #include <vk_mem_alloc.h>
+ #include "video_core/texture_cache/image_view.h"
+@@ -421,6 +423,9 @@ void Rasterizer::Draw(bool is_indexed, u32 index_offset) {
+     if (SkipSecondEye(state)) {
+         ResetBindings();
+         RetireIsolatedReadConstSnapshots();
++        if (Core::Vr::htl_sync_gpu.load(std::memory_order_relaxed)) {
++            scheduler.Finish();
++        }
+         return;
+     }
+ 
+@@ -473,6 +478,9 @@ void Rasterizer::Draw(bool is_indexed, u32 index_offset) {
+ 
+     ResetBindings();
+     RetireIsolatedReadConstSnapshots();
++    if (Core::Vr::htl_sync_gpu.load(std::memory_order_relaxed)) {
++        scheduler.Finish();
++    }
+ }
+ 
+ bool Rasterizer::DrawsNothing(const GraphicsPipeline* pipeline) const {
+@@ -786,6 +794,9 @@ void Rasterizer::DrawIndirect(bool is_indexed, VAddr arg_address, u32 offset, u3
+ 
+     ResetBindings();
+     RetireIsolatedReadConstSnapshots();
++    if (Core::Vr::htl_sync_gpu.load(std::memory_order_relaxed)) {
++        scheduler.Finish();
++    }
+ }
+ 
+ void Rasterizer::DispatchDirect() {
