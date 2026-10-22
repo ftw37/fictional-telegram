@@ -8,9 +8,11 @@ The reported defect is exploding geometry: broad triangles cover an eye while th
 - Copying submitted graphics command buffers did not solve the defect. The normal run still showed the wedges with that setting enabled.
 - Enabling the private `user/htl-snapshot-constants` diagnostic stopped the flicker, confirmed by the user. That diagnostic makes private constant buffers and waits after draws.
 - Switching to `user/htl-sync-gpu` alone, with constant snapshots disabled, stayed clean, also confirmed by the user. A synchronization change is sufficient for the observed stationary subway test; private constant copies are not necessary for that result.
-- A cheaper once-per-HMD-frame wait is enabled by the normal source launcher through `SHADPS4_HTL_FRAME_SYNC=1`. It waits for the submitted frame's actual scheduler timeline tick. A normal-speed replay reached the woman, open doors and dark subway without the large triangles in the inspected views. A 33.2-second stationary sample contained 2,032 completed present IDs (approximately 60 per second). User confirmation of the frame-only test is pending.
+- A cheaper once-per-HMD-frame wait was tested through `SHADPS4_HTL_FRAME_SYNC=1`. Although some inspected stills looked clean, a subsequent observed replay still had the wedges and progressed to broadly corrupted subway imagery. The user confirmed that failure. Frame waiting is insufficient and is disabled in the normal launcher.
+- Restoring per-draw synchronization recovered the stationary subway. A 43.9-second sample produced 800 completed present IDs, approximately 18 per second. This is a conservative fallback, not acceptable final VR performance. The normal launcher enables it through `SHADPS4_HTL_DRAW_SYNC=1` while better synchronization is investigated.
+- An opt-in GPU-only global dependency before draws and compute dispatches is being tested through `SHADPS4_HTL_GPU_BARRIER=1`. It ends rendering before inserting an all-command memory dependency and does not call a CPU wait. It is disabled in the normal launcher until validated.
 
-Per-draw waiting is diagnostic, not the intended final performance solution. The precise buffer lifetime or missing dependency has not yet been identified.
+Per-draw waiting is the conservative temporary fallback, not the intended final performance solution. The precise buffer lifetime or missing dependency has not yet been identified.
 
 One frame-wait replay hit the existing guest loading trap before the transition. Retrying with a longer title-screen pause loaded successfully. This does not establish that frame waiting fixes loading stability. The physical Quest 2 still needs testing.
 

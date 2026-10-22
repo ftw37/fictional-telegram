@@ -71,7 +71,7 @@ def main() -> int:
                     "SHADPS4_AUDIO3D_DUMP", "SHADPS4_HTL_AUDIO_TRACE"):
             env.pop(key, None)
         env.update(SHADPS4_HTL_COMPAT="1", SHADPS4_HTL_NATIVE_CLIP="1",
-                   SHADPS4_HTL_FRAME_SYNC="1",
+                   SHADPS4_HTL_FRAME_SYNC="0", SHADPS4_HTL_DRAW_SYNC="1",
                    SHADPS4_HTL_FX2="1", SHADPS4_HTL_AUDIO_DB="1",
                    SHADPS4_OPENXR="1" if args.mode == "quest" else "0",
                    SHADPS4_XR_WAIT="0", SHADPS4_VR_DEMO="0",
