@@ -1,6 +1,6 @@
 # Performance investigation — 22 October 2026
 
-Native 90 FPS has not been achieved or verified on a Quest. The physical headset was unavailable. A faster experimental graphics path is available, with the user-verified broad-barrier path retained as the normal default.
+Sustained native 90 FPS through the game has not been achieved or verified on a Quest. An experimental game-limiter bypass later produced about 88-93 completed menu frames per second; see [frame limiter findings](FRAME-LIMITER.md). The physical headset was unavailable. A faster experimental graphics path is available, with the user-verified broad-barrier path retained as the normal default.
 
 ## Measured results
 
@@ -49,3 +49,9 @@ The physical Quest/Virtual Desktop path still needs testing with the headset. Do
 ## Desktop ceiling follow-up
 
 A controlled preview on/off/on test measured 60, 62, then 60 FPS at both normal and higher emulated clocks. The desktop contributes a small limit, with another ceiling remaining. See [desktop presentation test](DESKTOP-PRESENTATION-TEST.md).
+
+## Identified game frame limiter
+
+The remaining approximately 62 FPS ceiling was traced to a game frame-deadline sleep/yield loop. A validated, opt-in in-memory branch bypass reached about 88-93 FPS in menu tests while the observed engine clock followed wall time. The heavy transition remains about 17-19 FPS. Normal launch behavior is unchanged. See [FRAME-LIMITER.md](FRAME-LIMITER.md) for evidence and limits.
+
+The same experimental replay later measured about 105-109 FPS in a light settled subway view with desktop presentation disabled; this is not a whole-level benchmark. Scripted turning and walking changed the view coherently. Full physics and audio equivalence remain unverified.

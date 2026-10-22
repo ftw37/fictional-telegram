@@ -68,6 +68,7 @@ def main() -> int:
                     kernel.CloseHandle(handle)
         env = os.environ.copy()
         for key in ("SHADPS4_INPUT_SCRIPT", "SHADPS4_LIVE_INPUT", "SHADPS4_VR_SOCKET",
+                    "SHADPS4_HTL_TEST_UNCAP", "SHADPS4_HTL_SLEEP_TRACE",
                     "SHADPS4_HTL_TEST_VBLANK_HZ", "SHADPS4_HTL_NO_PRESENT", "SHADPS4_GPU_PROFILE",
                     "SHADPS4_FRAME_STATS", "SHADPS4_DBG_CALL_TIMES",
                     "SHADPS4_DBG_SKIP_PS", "SHADPS4_DBG_DRAW_VERTICES",
