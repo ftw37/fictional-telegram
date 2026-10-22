@@ -45,3 +45,7 @@ Trace/optimize the roughly 48-51 ms of guest graphics-command processing in the 
 ## Validation and privacy
 
 Build 37 compiled. Test-FrameCap.ps1 passed signature, bounds, write-scope and jump-destination checks. The source compatibility patch applied to 35 pristine files and matched the working source tree. Full disassembly, raw process memory samples, binaries and logs remain private; the repository contains emulator source, the small validated patch definition, tests and aggregate findings only.
+
+## Subsequent visual regression
+
+The user reported overlapping objects and transition glitches in the visible fast-graphics plus uncap demo. The combined configuration is not reliable despite the sampled views above. It is disabled for the conservative comparison replay. The causal split between graphics mode and faster timing is not yet known.

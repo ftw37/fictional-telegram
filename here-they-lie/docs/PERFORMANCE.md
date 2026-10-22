@@ -55,3 +55,9 @@ A controlled preview on/off/on test measured 60, 62, then 60 FPS at both normal 
 The remaining approximately 62 FPS ceiling was traced to a game frame-deadline sleep/yield loop. A validated, opt-in in-memory branch bypass reached about 88-93 FPS in menu tests while the observed engine clock followed wall time. The heavy transition remains about 17-19 FPS. Normal launch behavior is unchanged. See [FRAME-LIMITER.md](FRAME-LIMITER.md) for evidence and limits.
 
 The same experimental replay later measured about 105-109 FPS in a light settled subway view with desktop presentation disabled; this is not a whole-level benchmark. Scripted turning and walking changed the view coherently. Full physics and audio equivalence remain unverified.
+
+## User-observed regression after the performance demo
+
+The user subsequently reported overlapping objects and woman/train glitches during the visible run using pipeline rebinding plus the experimental limiter bypass. Live inspection also showed overlapping geometry. Earlier clean sampled stills were insufficient to establish reliability. This fast combination must be treated as failed for normal use. A live switch back to broad barriers did not immediately repair the already-running scene, so the game was restarted with broad barriers and the original limiter. The relative contribution of graphics-state reuse versus the faster game timing remains unisolated. The normal launcher still uses broad barriers and clears the uncap test flag. Menu haze persists in the conservative replay and remains unresolved.
+
+The normal launcher now enables the built-in FPS overlay with --show-fps. F10 toggles it. Its saved position in the prepared runtime was moved to the upper left to avoid clipping at the edge. This overlay measures the displayed game-frame cadence; off-screen diagnostics continue to use FrameStats.

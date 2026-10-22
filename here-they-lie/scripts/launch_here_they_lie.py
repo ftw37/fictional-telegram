@@ -24,7 +24,7 @@ def main() -> int:
     parser.add_argument("--tv-preview", action="store_true",
                         help="Open the optional TV preview window (off by default)")
     parser.add_argument("--fast-graphics", action="store_true",
-                        help="Experimental graphics-state rebinding instead of broad GPU barriers")
+                        help="Diagnostic graphics-state rebinding (reported visual glitches; not recommended)")
     args = parser.parse_args()
     root = args.development_root.resolve()
     runtime = root / "test-vr"
@@ -105,7 +105,7 @@ def main() -> int:
             with (root / "source-launcher-stdout.log").open("w", encoding="utf-8") as log:
                 process = subprocess.Popen(
                     [str(exe), "-g", str(game / "eboot.bin"), "--ignore-game-patch",
-                     "--fullscreen", "false"], cwd=runtime, env=env, stdout=log, stderr=log,
+                     "--fullscreen", "false", "--show-fps"], cwd=runtime, env=env, stdout=log, stderr=log,
                     creationflags=subprocess.CREATE_NO_WINDOW)
                 (root / "active-run.json").write_text(json.dumps({
                     "pid": process.pid, "started": time.time(), "exe": str(exe), "mode": args.mode}),
