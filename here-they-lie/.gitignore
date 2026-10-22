@@ -26,3 +26,8 @@ adapted-test-pid.txt
 *.zip
 *.tar.*
 __pycache__/
+
+# Diagnostic results can contain game memory or machine-local state.
+/diagnostics/*.json
+/diagnostics/*.txt
+/diagnostics/debug-libs/

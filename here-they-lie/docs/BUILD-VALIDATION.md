@@ -13,3 +13,5 @@ Local build: Documents/Codex/HTL-Development/build/win-x64/shadps4.exe.
 Portable tools: Documents/Codex/DevTools/htl.
 
 The working HTL-Test emulator has not been replaced. New builds have different hashes/addresses; old process-patching diagnostics must not be used on them. No social-screen rendering implementation has been added yet, and no overnight task has been started.
+
+The saved Build-Emulator.ps1 was also executed successfully end to end. The resulting executable passed its command-line help check (exit 0). Resulting SHA256: 06733f887558f9eb9e9824f7bb41298f573a92b17dcf052d585e33d5118b388e.
