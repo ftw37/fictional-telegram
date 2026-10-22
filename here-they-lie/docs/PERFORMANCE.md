@@ -45,3 +45,7 @@ The physical Quest/Virtual Desktop path still needs testing with the headset. Do
 - Compatibility patch applied to 32 pristine source files and matched the working tree.
 - Bit-range regression: 12,644,424 cases passed.
 - The patch contains source changes only; game data, binaries, captures, saves, modules, and raw logs remain private.
+
+## Desktop ceiling follow-up
+
+A controlled preview on/off/on test measured 60, 62, then 60 FPS at both normal and higher emulated clocks. The desktop contributes a small limit, with another ceiling remaining. See [desktop presentation test](DESKTOP-PRESENTATION-TEST.md).

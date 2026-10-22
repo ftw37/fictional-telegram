@@ -1165,10 +1165,10 @@ index eee2ee4..884ace9 100644
      if (VirtualQuery(reinterpret_cast<const void*>(context.Rsp), &stack, sizeof(stack)) == 0 ||
 diff --git a/shadps4-arm64-main/src/core/vr/htl_diagnostics.h b/shadps4-arm64-main/src/core/vr/htl_diagnostics.h
 new file mode 100644
-index 0000000..987c493
+index 0000000..ccd017f
 --- /dev/null
 +++ b/shadps4-arm64-main/src/core/vr/htl_diagnostics.h
-@@ -0,0 +1,39 @@
+@@ -0,0 +1,45 @@
 +// SPDX-License-Identifier: GPL-2.0-or-later
 +#pragma once
 +#include <atomic>
@@ -1180,6 +1180,7 @@ index 0000000..987c493
 +namespace Core::Vr {
 +inline std::atomic_bool htl_sync_gpu{}, htl_sync_frame{}, htl_snapshot_constants{};
 +inline std::atomic_bool htl_gpu_barrier{};
++inline std::atomic_bool htl_no_present{};
 +inline std::atomic_int htl_barrier_mode{};
 +inline void PollHtlDiagnostics() {
 +    static const bool enabled = std::getenv("SHADPS4_HTL_COMPAT") != nullptr;
@@ -1202,6 +1203,11 @@ index 0000000..987c493
 +    if (std::ifstream file{"user/htl-barrier-mode"}; file) file >> mode;
 +    htl_barrier_mode = mode == "compute" ? 1 : mode == "pass" ? 2 :
 +                       mode == "pipeline" ? 3 : mode == "state" ? 4 : 0;
++    const char* openxr = std::getenv("SHADPS4_OPENXR");
++    const char* no_present = std::getenv("SHADPS4_HTL_NO_PRESENT");
++    htl_no_present = openxr && openxr[0] == '0' &&
++        ((no_present && no_present[0] == '1') ||
++         std::filesystem::exists("user/htl-no-present", error));
 +    const char* frame_sync = std::getenv("SHADPS4_HTL_FRAME_SYNC");
 +    htl_sync_frame = (frame_sync && frame_sync[0] == '1') ||
 +                     std::filesystem::exists("user/htl-sync-frame", error);
@@ -1644,7 +1650,7 @@ index 238242f..1c7f716 100644
              }
              info.AddBindings(binding);
 diff --git a/shadps4-arm64-main/src/video_core/renderer_vulkan/vk_presenter.cpp b/shadps4-arm64-main/src/video_core/renderer_vulkan/vk_presenter.cpp
-index 27d6f3e..a0b586b 100644
+index 27d6f3e..503e42b 100644
 --- a/shadps4-arm64-main/src/video_core/renderer_vulkan/vk_presenter.cpp
 +++ b/shadps4-arm64-main/src/video_core/renderer_vulkan/vk_presenter.cpp
 @@ -1,3 +1,5 @@
@@ -1894,6 +1900,43 @@ index 27d6f3e..a0b586b 100644
      return {.shown = frame, .exported = local};
  }
  
+@@ -1830,7 +1940,8 @@ Frame* Presenter::PrepareBlankFrame(bool present_thread) {
+ void Presenter::Present(Frame* frame, bool is_reusing_frame) {
+     static std::atomic_uint32_t present_traces{};
+     const u32 trace_id = present_traces.fetch_add(1, std::memory_order_relaxed);
+-    if (!is_reusing_frame) {
++    const bool no_present = Core::Vr::htl_no_present.load(std::memory_order_relaxed);
++    if (!is_reusing_frame && !no_present) {
+         FrameStats::EndFrame();
+     }
+ 
+@@ -1894,6 +2005,26 @@ void Presenter::Present(Frame* frame, bool is_reusing_frame) {
+         free_cv.notify_one();
+     };
+ 
++    // Preview-only diagnostic: complete the same composed eye frame, but do not
++    // acquire or present a desktop swapchain image. Keep its fence signalled and
++    // wait for rendering before recycling it, so frame counts cannot be fake flips.
++    static int last_no_present = -1;
++    if (last_no_present != static_cast<int>(no_present)) {
++        last_no_present = no_present;
++        LOG_INFO(Render_Vulkan, "HTL desktop presentation {}", no_present ? "disabled" : "enabled");
++    }
++    if (no_present) {
++        if (frame->ready_timeline != nullptr) {
++            frame->ready_timeline->Wait(frame->ready_tick);
++        }
++        free_frame();
++        if (!is_reusing_frame) {
++            DebugState.IncFlipFrameNum();
++            FrameStats::EndFrame();
++        }
++        return;
++    }
++
+     // Recreate the swapchain if the window was resized.
+     if (window.GetWidth() != swapchain.GetWidth() || window.GetHeight() != swapchain.GetHeight()) {
+         swapchain.Recreate(window.GetWidth(), window.GetHeight());
 diff --git a/shadps4-arm64-main/src/video_core/renderer_vulkan/vk_presenter.h b/shadps4-arm64-main/src/video_core/renderer_vulkan/vk_presenter.h
 index 2be4125..739d30a 100644
 --- a/shadps4-arm64-main/src/video_core/renderer_vulkan/vk_presenter.h
