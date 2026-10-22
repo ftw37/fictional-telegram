@@ -21,6 +21,8 @@ def main() -> int:
     parser.add_argument("--game", type=Path,
                         default=Path.home() / "Documents/Codex/HTL-Test/game/uroot")
     parser.add_argument("--replay", type=Path, help="Optional diagnostic input script")
+    parser.add_argument("--tv-preview", action="store_true",
+                        help="Open the optional TV preview window (off by default)")
     args = parser.parse_args()
     root = args.development_root.resolve()
     runtime = root / "test-vr"
@@ -75,7 +77,7 @@ def main() -> int:
                    SHADPS4_VR_DESKTOP_GESTURES="1" if args.mode == "preview" else "0",
                    SHADPS4_VR_DESKTOP_VIEW="stereo", SHADPS4_DBG_EYE_SCAN="0",
                    SHADPS4_SHOT_SECONDS="0")
-        if args.mode != "flat":
+        if args.tv_preview and args.mode != "flat":
             env["SHADPS4_SOCIAL_PREVIEW"] = "1"
         else:
             env.pop("SHADPS4_SOCIAL_PREVIEW", None)

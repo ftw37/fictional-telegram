@@ -35,3 +35,6 @@ Desktop stereo preview colors, the final normal Quest launcher and extended game
 ## Desktop calibration correction
 The first user launch exposed that hold-Options gestures were enabled only by an active OpenXR session. Preview mode now explicitly enables desktop view gestures through SHADPS4_VR_DESKTOP_GESTURES. A two-second Options input through the controller path logged OPTIONS held: view reset, passed calibration and removed the broad white calibration veil. The normal main menu remained coherent in both eyes. This test used scripted held input; physical Enter confirmation is still pending.
 
+
+TV preview is now off by default. Pass --tv-preview to enable it in preview or Quest mode. The local test-vr folder has a separate Play Here They Lie with TV.cmd launcher for this option.
+
