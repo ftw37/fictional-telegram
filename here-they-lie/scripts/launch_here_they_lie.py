@@ -76,6 +76,7 @@ def main() -> int:
                     "SHADPS4_AUDIO3D_DUMP", "SHADPS4_HTL_AUDIO_TRACE"):
             env.pop(key, None)
         env.update(SHADPS4_HTL_COMPAT="1", SHADPS4_HTL_NATIVE_CLIP="1",
+                   SHADPS4_HTL_TOUCH_CONTROLS="1",
                    SHADPS4_HTL_FRAME_SYNC="0", SHADPS4_HTL_DRAW_SYNC="0",
                    SHADPS4_HTL_GPU_BARRIER="1",
                    SHADPS4_HTL_BARRIER_MODE="pipeline" if args.fast_graphics else "broad",
