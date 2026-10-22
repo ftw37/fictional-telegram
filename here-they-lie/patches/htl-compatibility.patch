@@ -1178,8 +1178,39 @@ index 0000000..25baf45
 +    social_preview_frame = std::move(frame);
 +}
 +} // namespace Core::Vr
+diff --git a/shadps4-arm64-main/src/core/vr/vr_runtime.cpp b/shadps4-arm64-main/src/core/vr/vr_runtime.cpp
+index b7c3820..1a029bf 100644
+--- a/shadps4-arm64-main/src/core/vr/vr_runtime.cpp
++++ b/shadps4-arm64-main/src/core/vr/vr_runtime.cpp
+@@ -247,6 +247,11 @@ void Runtime::Configure(bool psvr_supported, bool psvr_required) {
+         config.headset_connected = true;
+     }
+ #endif
++    bool desktop_gestures = false;
++    if (config.headset_connected && EnvFlag("SHADPS4_VR_DESKTOP_GESTURES", desktop_gestures) &&
++        desktop_gestures) {
++        EnableViewGestures(true);
++    }
+     LOG_INFO(Core_Vr,
+              "Virtual headset {} (title supports PSVR: {}, requires PSVR: {}), refresh {} Hz, "
+              "ipd {:.1f} mm, demo motion {}",
+diff --git a/shadps4-arm64-main/src/input/controller.cpp b/shadps4-arm64-main/src/input/controller.cpp
+index c5353c1..966f1dc 100644
+--- a/shadps4-arm64-main/src/input/controller.cpp
++++ b/shadps4-arm64-main/src/input/controller.cpp
+@@ -143,6 +143,10 @@ static void NoteViewButtons(OrbisPadButtonDataOffset before, OrbisPadButtonDataO
+ }
+ 
+ void GameController::Button(OrbisPadButtonDataOffset button, bool is_pressed) {
++    if(std::getenv("SHADPS4_HTL_INPUT_TRACE")) {
++        LOG_INFO(Input,"HTL mapped button: mask={:#x} down={} connected={} headset_owns={}",
++                 static_cast<u32>(button),is_pressed,m_connected,HeadsetPlays());
++    }
+     if (HeadsetPlays()) {
+         return;
+     }
 diff --git a/shadps4-arm64-main/src/sdl_window.cpp b/shadps4-arm64-main/src/sdl_window.cpp
-index 7992ed3..2a6d7f4 100644
+index 7992ed3..f1ec6eb 100644
 --- a/shadps4-arm64-main/src/sdl_window.cpp
 +++ b/shadps4-arm64-main/src/sdl_window.cpp
 @@ -22,13 +22,14 @@
@@ -1259,7 +1290,7 @@ index 7992ed3..2a6d7f4 100644
  
  void WindowSDL::SetIcon(const std::filesystem::path& path) {
  #ifdef ENABLE_BACHATA_RUNTIME
-@@ -322,12 +367,28 @@ void WindowSDL::SetIcon(const std::filesystem::path& path) {
+@@ -322,17 +367,41 @@ void WindowSDL::SetIcon(const std::filesystem::path& path) {
  
  void WindowSDL::WaitEvent() {
      // Called on main thread
@@ -1268,9 +1299,14 @@ index 7992ed3..2a6d7f4 100644
  
 -    if (!SDL_WaitEvent(&event)) {
 +    if (!SDL_WaitEventTimeout(&event, 16)) {
-         return;
-     }
- 
++        return;
++    }
++    if (std::getenv("SHADPS4_HTL_INPUT_TRACE") &&
++        (event.type == SDL_EVENT_KEY_DOWN || event.type == SDL_EVENT_KEY_UP)) {
++        LOG_INFO(Input,"HTL key event: key={} scancode={} down={} timestamp={}",
++                 event.key.key,static_cast<u32>(event.key.scancode),event.key.down,event.key.timestamp);
++    }
++
 +    if (social_window && event.type >= SDL_EVENT_WINDOW_FIRST &&
 +        event.type <= SDL_EVENT_WINDOW_LAST &&
 +        event.window.windowID == SDL_GetWindowID(social_window)) {
@@ -1284,12 +1320,21 @@ index 7992ed3..2a6d7f4 100644
 +            social_renderer = nullptr;
 +            social_window = nullptr;
 +        }
-+        return;
-+    }
+         return;
+     }
+-
      if (Libraries::Mouse::PushSDLEvent(event)) {
          return;
      }
-@@ -370,6 +431,7 @@ void WindowSDL::WaitEvent() {
+ 
+     if (ImGui::Core::ProcessEvent(&event)) {
++        if (std::getenv("SHADPS4_HTL_INPUT_TRACE") &&
++            (event.type == SDL_EVENT_KEY_DOWN || event.type == SDL_EVENT_KEY_UP))
++            LOG_INFO(Input,"HTL key consumed by overlay");
+         return;
+     }
+ 
+@@ -370,6 +439,7 @@ void WindowSDL::WaitEvent() {
      case SDL_EVENT_GAMEPAD_SENSOR_UPDATE:
          OnGamepadEvent(&event);
          break;

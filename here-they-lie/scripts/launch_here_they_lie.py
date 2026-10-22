@@ -72,6 +72,7 @@ def main() -> int:
                    SHADPS4_HTL_FX2="1", SHADPS4_HTL_AUDIO_DB="1",
                    SHADPS4_OPENXR="1" if args.mode == "quest" else "0",
                    SHADPS4_XR_WAIT="0", SHADPS4_VR_DEMO="0",
+                   SHADPS4_VR_DESKTOP_GESTURES="1" if args.mode == "preview" else "0",
                    SHADPS4_VR_DESKTOP_VIEW="stereo", SHADPS4_DBG_EYE_SCAN="0",
                    SHADPS4_SHOT_SECONDS="0")
         if args.mode != "flat":
@@ -80,6 +81,7 @@ def main() -> int:
             env.pop("SHADPS4_SOCIAL_PREVIEW", None)
         if args.replay:
             env["SHADPS4_INPUT_SCRIPT"] = str(args.replay.resolve(strict=True))
+            env["SHADPS4_LIVE_INPUT"] = str(args.replay.resolve(strict=True))
 
         commandline = game / "ue4commandline.txt"
         old_flags = commandline.read_bytes() if commandline.exists() else None
