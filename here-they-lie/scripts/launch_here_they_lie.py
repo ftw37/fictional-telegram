@@ -23,6 +23,8 @@ def main() -> int:
     parser.add_argument("--replay", type=Path, help="Optional diagnostic input script")
     parser.add_argument("--tv-preview", action="store_true",
                         help="Open the optional TV preview window (off by default)")
+    parser.add_argument("--frame-stats", action="store_true",
+                        help="Collect lightweight frame timing for route comparisons")
     parser.add_argument("--fast-graphics", action="store_true",
                         help="Diagnostic graphics-state rebinding (reported visual glitches; not recommended)")
     args = parser.parse_args()
@@ -90,6 +92,9 @@ def main() -> int:
                    SHADPS4_VR_DESKTOP_VIEW="stereo", SHADPS4_DBG_EYE_SCAN="0",
                    SHADPS4_SHOT_SECONDS="0")
         if args.mode == "preview":
+            if args.frame_stats:
+                env["SHADPS4_FRAME_STATS"] = "1"
+                env["SHADPS4_FRAME_STATS_EVERY"] = "5"
             env["SHADPS4_HTL_THEATRE_PREVIEW"] = "1"
         else:
             env.pop("SHADPS4_HTL_THEATRE_PREVIEW", None)

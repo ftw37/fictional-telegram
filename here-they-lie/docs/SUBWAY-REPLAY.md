@@ -1,0 +1,19 @@
+# Opening subway benchmark
+
+October 23 validation: one exploratory walkthrough and two consecutive unattended replay runs reached the station platform, with the endpoint visually confirmed in each case. The unattended traversal phases took 111.109 and 116.063 seconds; complete runs including fixed startup waits took 311.453 and 316.438 seconds. An earlier validation attempt crashed in the emulator during startup and was correctly reported as failed before traversal. Startup remains an intermittent reliability issue. These timings are an initial baseline, not a performance improvement claim.
+
+The local double-click entry point is `HTL-Development/test-vr/Replay-Subway-To-Platform.cmd`. It is also provided as a chat output. The last validation was left running on the platform.
+
+The route starts New Game, walks through the opening subway, and ends on the station platform. It resets the current game's progress. Requires the prepared local CUSA05344 01.00 no-vignette game view, current source emulator, shared user profile with **VR Drive Mode unchecked**, and no running emulator. SteamVR is not used.
+
+Run `scripts/replay_subway.py --reset-progress`. The reset flag is mandatory. A unique run folder is created under `Documents/Codex/HTL-Development/performance-runs`. Do not press controls while the replay runs. Keep the game and renderer settings constant between measurements.
+
+Startup currently uses conservative wall-clock offsets for calibration, New Game and confirmation, then waits until 195 seconds before locating the live player. It assumes the menu has Continue above New Game and starts at Continue. A changed menu, game build, unusually slow startup or changed turning preference can require updating this stage. The route is not an emulator save state or deterministic engine replay.
+
+Traversal reads the player's position relative to its moving carriage. It controls only normal gamepad inputs: align with the current car, center in the aisle, walk to its end, open its exit door, cross the connection, and separately open the following car's entrance. It continues through the scripted scares and fire while keeping the aisle centered. The fire transition is detected before steering along the stationary car to its middle side doorway. Exit is checked by the movement base changing from the train to the platform. All inputs are finite pulses and expire on failure; failures do not count as completed runs. The emulator is left open for visual inspection.
+
+`subway_position.py` opens only query/read access to the emulator. It verifies the process path, discovers the active player, and reads transforms using offsets specific to this game version. It performs no memory writes or teleportation. Discovery scans occur before the measured traversal. Do not compare the startup/discovery phase as rendering performance.
+
+Each local run contains `metadata.json` (emulator hash and settings), `inputs.txt`, `events.jsonl`, `result.json`, and private logs. These files stay local and must not be committed: the logs and telemetry may contain machine-specific information. The raw input file is a diagnostic record, not the recommended replay: use the feedback runner so performance changes do not alter the path.
+
+Run `scripts/summarize_subway.py RUN_FOLDER` for route-stage timing and five-second FPS windows. The FPS clock starts later than the launcher clock, so the default report deliberately leaves FPS windows separate from route stages. Only supply `--clock-offset-seconds` after independently measuring that offset. Short stages may have no complete FPS windows even with calibration. These are coarse window averages, not 1% lows or frame-time percentiles. Compare completed runs only, use a warm-up run, then several measured runs with the same shader cache policy. Preserve the route and compare renderer changes one at a time. Actual engine pauses and navigation overhead are part of traversal time.
