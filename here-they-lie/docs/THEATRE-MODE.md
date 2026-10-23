@@ -1,5 +1,11 @@
 # Headset theatre mode
 
+## Stereo desktop preview
+
+The desktop preview launcher now enables `SHADPS4_HTL_THEATRE_PREVIEW=1`. During flat submissions it projects the same image onto a virtual screen for two parallel cameras, 64 mm apart. The screen is two metres wide at 1.524 metres distance, with its original image aspect ratio and a 90-degree horizontal field of view per eye. Both projections appear side by side against black. This models the screen's binocular depth rather than merely duplicating the image. It does not require an OpenXR runtime. Stereo gameplay resumes automatically on normal HMD submissions. The headset quad path is unchanged.
+
+Build 42 was compiled and installed October 23, 2026. A desktop run visibly showed the Santa Monica Studio logo in both projected screens, upright, then switched to the stereo alley/calibration view. Later loading interstitials use this same submission path but were not replayed individually. The source patch was validated against the pristine base revision.
+
 The Quest launcher enables a flat OpenXR quad for startup logos and loading frames, positioned 1.524 metres ahead at eye height. The screen is two metres wide and preserves the submitted image's aspect ratio. Normal HMD reprojection submissions switch back to stereo projection. Each mode transition changes a generation counter so queued frames from the previous mode cannot appear in the new mode. Repeated submissions keep the theatre screen anchored in place.
 
 Here They Lie submits its logo images directly through `sceHmdReprojectionStart2dVr`, rather than ordinary TV flips. The compatibility implementation accepts that call's texture descriptor and queues it through the existing HMD frame path, composing one full image for theatre frames. The parameter layout was recovered from the local executable's call site. Its sampler, UV parameters and frame-label pointer are currently not interpreted; presentation uses the entire supplied texture. The call shares the established reprojection display-buffer alternation and flip completion path.

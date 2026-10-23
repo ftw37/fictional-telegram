@@ -1848,6 +1848,36 @@ index 0000000..1f02050
 +                                                  std::uint64_t{theatre})) {}
 +}
 +} // namespace Core::Vr
+diff --git a/shadps4-arm64-main/src/core/vr/theatre_preview.h b/shadps4-arm64-main/src/core/vr/theatre_preview.h
+new file mode 100644
+index 0000000..bd40c41
+--- /dev/null
++++ b/shadps4-arm64-main/src/core/vr/theatre_preview.h
+@@ -0,0 +1,24 @@
++// SPDX-License-Identifier: GPL-2.0-or-later
++#pragma once
++#include <array>
++
++namespace Core::Vr {
++struct TheatrePreviewRect { float x, y, width, height; };
++// Parallel cameras, 64 mm apart, looking at the same two-metre screen 1.524 m away.
++// A 90-degree horizontal field of view defines each eye's projection.
++inline std::array<TheatrePreviewRect, 2> TheatrePreviewRects(float eye_width,
++                                                           float eye_height,
++                                                           float image_aspect) {
++    constexpr float distance = 1.524f;
++    constexpr float screen_width = 2.f;
++    constexpr float ipd = 0.064f;
++    const float focal = eye_width * 0.5f;
++    const float width = screen_width * focal / distance;
++    const float height = width / image_aspect;
++    const float disparity = ipd * 0.5f * focal / distance;
++    const float x = (eye_width - width) * 0.5f;
++    const float y = (eye_height - height) * 0.5f;
++    return {{{x + disparity, y, width, height},
++             {eye_width + x - disparity, y, width, height}}};
++}
++} // namespace Core::Vr
 diff --git a/shadps4-arm64-main/src/core/vr/vr_runtime.cpp b/shadps4-arm64-main/src/core/vr/vr_runtime.cpp
 index b7c3820..1a029bf 100644
 --- a/shadps4-arm64-main/src/core/vr/vr_runtime.cpp
@@ -2240,17 +2270,18 @@ index 238242f..1c7f716 100644
              }
              info.AddBindings(binding);
 diff --git a/shadps4-arm64-main/src/video_core/renderer_vulkan/vk_presenter.cpp b/shadps4-arm64-main/src/video_core/renderer_vulkan/vk_presenter.cpp
-index 27d6f3e..e54bd98 100644
+index 27d6f3e..29f12fd 100644
 --- a/shadps4-arm64-main/src/video_core/renderer_vulkan/vk_presenter.cpp
 +++ b/shadps4-arm64-main/src/video_core/renderer_vulkan/vk_presenter.cpp
-@@ -1,3 +1,6 @@
+@@ -1,3 +1,7 @@
 +#include "core/vr/htl_diagnostics.h"
 +#include "core/vr/social_preview.h"
 +#include "core/vr/theatre_mode.h"
++#include "core/vr/theatre_preview.h"
  // SPDX-FileCopyrightText: Copyright 2024-2026 shadPS4 Emulator Project
  // SPDX-License-Identifier: GPL-2.0-or-later
  
-@@ -426,6 +429,10 @@ static bool WritePng(const std::filesystem::path& path, const std::span<const u8
+@@ -426,6 +430,10 @@ static bool WritePng(const std::filesystem::path& path, const std::span<const u8
      }
  
      png_init_io(png_ptr, file.file);
@@ -2261,7 +2292,7 @@ index 27d6f3e..e54bd98 100644
      png_set_IHDR(png_ptr, info_ptr, width, height, 8, PNG_COLOR_TYPE_RGBA, PNG_INTERLACE_NONE,
                   PNG_COMPRESSION_TYPE_DEFAULT, PNG_FILTER_TYPE_DEFAULT);
      png_write_info(png_ptr, info_ptr);
-@@ -728,6 +735,20 @@ static void Look(const std::vector<ScreenshotReadback>& pictures, u32 frame_id)
+@@ -728,6 +736,20 @@ static void Look(const std::vector<ScreenshotReadback>& pictures, u32 frame_id)
          }
      };
      const double seconds = std::chrono::duration<double>(now - first).count();
@@ -2282,7 +2313,7 @@ index 27d6f3e..e54bd98 100644
      if (told > 0) {
          LOG_INFO(Render_Vulkan, "Eye scan at {:.1f} s, frame {}:{}", seconds, frame_id, found);
          if (saved < 80 && now - last_save >= std::chrono::seconds{2}) {
-@@ -1007,6 +1028,35 @@ static vk::Format GetFrameViewFormat(const Libraries::VideoOut::PixelFormat form
+@@ -1007,6 +1029,35 @@ static vk::Format GetFrameViewFormat(const Libraries::VideoOut::PixelFormat form
      return {};
  }
  
@@ -2318,7 +2349,7 @@ index 27d6f3e..e54bd98 100644
  Frame* Presenter::PrepareFrame(const Libraries::VideoOut::BufferAttributeGroup& attribute,
                                 VAddr cpu_address) {
      auto desc = VideoCore::TextureCache::ImageDesc{attribute, cpu_address};
-@@ -1077,6 +1127,23 @@ Frame* Presenter::PrepareFrame(const Libraries::VideoOut::BufferAttributeGroup&
+@@ -1077,6 +1128,23 @@ Frame* Presenter::PrepareFrame(const Libraries::VideoOut::BufferAttributeGroup&
      image.Transit(vk::ImageLayout::eShaderReadOnlyOptimal, vk::AccessFlagBits2::eShaderRead, {},
                    cmdbuf);
  
@@ -2342,7 +2373,7 @@ index 27d6f3e..e54bd98 100644
      image_view = fsr_pass.Render(cmdbuf, image_view, image_size, {frame->width, frame->height},
                                   fsr_settings, frame->is_hdr);
      pp_pass.Render(cmdbuf, image_view, image_size, *frame, pp_settings);
-@@ -1098,12 +1165,17 @@ Frame* Presenter::PrepareFrame(const Libraries::VideoOut::BufferAttributeGroup&
+@@ -1098,12 +1166,17 @@ Frame* Presenter::PrepareFrame(const Libraries::VideoOut::BufferAttributeGroup&
      frame->ready_tick = draw_scheduler.CurrentTick();
      SubmitInfo info{};
      draw_scheduler.Flush(info);
@@ -2362,7 +2393,7 @@ index 27d6f3e..e54bd98 100644
      // The guest hands the eyes over as plain textures; they were rendered as color targets, so
      // the cache already holds their contents.
      std::array<VideoCore::TextureCache::ImageDesc, 2> descs;
-@@ -1193,7 +1265,7 @@ HmdFrames Presenter::PrepareHmdFrame(std::span<const AmdGpu::Image, 2> eye_textu
+@@ -1193,7 +1266,7 @@ HmdFrames Presenter::PrepareHmdFrame(std::span<const AmdGpu::Image, 2> eye_textu
      ++logged_frames;
  
      const auto& left_info = texture_cache.GetImage(image_ids[0]).info;
@@ -2371,11 +2402,12 @@ index 27d6f3e..e54bd98 100644
      eye_height = left_info.size.height;
  
      // With a VR host attached the frame goes into one of its buffers instead of the window. A
-@@ -1205,15 +1277,15 @@ HmdFrames Presenter::PrepareHmdFrame(std::span<const AmdGpu::Image, 2> eye_textu
+@@ -1205,15 +1278,16 @@ HmdFrames Presenter::PrepareHmdFrame(std::span<const AmdGpu::Image, 2> eye_textu
          const char* value = std::getenv("SHADPS4_VR_DESKTOP_VIEW");
          return Core::Vr::ParseDesktopView(value != nullptr ? value : "");
      }();
 -    const bool spectator = desktop_view != Core::Vr::DesktopView::Stereo && !exported;
++    const bool theatre_preview = theatre && std::getenv("SHADPS4_HTL_THEATRE_PREVIEW") != nullptr;
 +    const bool spectator = theatre || (desktop_view != Core::Vr::DesktopView::Stereo && !exported);
      static const bool desktop_crop = [] {
          const char* value = std::getenv("SHADPS4_VR_DESKTOP_CROP");
@@ -2384,14 +2416,14 @@ index 27d6f3e..e54bd98 100644
 -    const bool crop = spectator && desktop_crop;
 -    const float desktop_aspect = Core::Vr::DesktopViewAspect(
 +    const bool crop = !theatre && spectator && desktop_crop;
-+    const float desktop_aspect = theatre ? static_cast<float>(eye_width) / eye_height : Core::Vr::DesktopViewAspect(
++    const float desktop_aspect = theatre_preview ? 1920.f / 1080.f : theatre ? static_cast<float>(eye_width) / eye_height : Core::Vr::DesktopViewAspect(
          desktop_view, fov, static_cast<float>(eye_width) / eye_height);
 -    Frame* const local = exported ? nullptr : vr_exporter->AcquireLocal(eye_width * 2, eye_height);
 +    Frame* const local = exported ? nullptr : vr_exporter->AcquireLocal(eye_width * (theatre ? 1 : 2), eye_height);
      if (!exported) {
          expected_ratio = crop ? std::nullopt : std::optional{desktop_aspect};
          // The window shows what a headset of this machine's own is given at most 60 times a
-@@ -1299,10 +1371,19 @@ HmdFrames Presenter::PrepareHmdFrame(std::span<const AmdGpu::Image, 2> eye_textu
+@@ -1299,10 +1373,19 @@ HmdFrames Presenter::PrepareHmdFrame(std::span<const AmdGpu::Image, 2> eye_textu
          const char* value = std::getenv("SHADPS4_DBG_EYE_SCAN");
          return value != nullptr ? static_cast<u32>(std::max(0, std::atoi(value))) : 0u;
      }();
@@ -2413,7 +2445,7 @@ index 27d6f3e..e54bd98 100644
      }
      std::array<vk::ImageView, 2> eye_views;
      for (u32 eye = 0; eye < 2; ++eye) {
-@@ -1317,7 +1398,7 @@ HmdFrames Presenter::PrepareHmdFrame(std::span<const AmdGpu::Image, 2> eye_textu
+@@ -1317,7 +1400,7 @@ HmdFrames Presenter::PrepareHmdFrame(std::span<const AmdGpu::Image, 2> eye_textu
          // that does, and that is the one to get ready for reading.
          auto& image = texture_cache.GetImage(image_ids[eye]);
          eye_views[eye] = *image.FindView(view_info).image_view;
@@ -2422,7 +2454,7 @@ index 27d6f3e..e54bd98 100644
              image.Transit(vk::ImageLayout::eTransferSrcOptimal, vk::AccessFlagBits2::eTransferRead,
                            {}, cmdbuf);
              eye_scan->emplace_back(instance, draw_scheduler, ScreenshotKind::GameOnly,
-@@ -1340,6 +1421,7 @@ HmdFrames Presenter::PrepareHmdFrame(std::span<const AmdGpu::Image, 2> eye_textu
+@@ -1340,6 +1423,7 @@ HmdFrames Presenter::PrepareHmdFrame(std::span<const AmdGpu::Image, 2> eye_textu
                      .offset{.x = static_cast<s32>(eye * half_width), .y = 0},
                      .extent{.width = half_width, .height = target.height},
                  },
@@ -2430,16 +2462,33 @@ index 27d6f3e..e54bd98 100644
              };
          }
          return regions;
-@@ -1373,7 +1455,7 @@ HmdFrames Presenter::PrepareHmdFrame(std::span<const AmdGpu::Image, 2> eye_textu
+@@ -1373,7 +1457,24 @@ HmdFrames Presenter::PrepareHmdFrame(std::span<const AmdGpu::Image, 2> eye_textu
          const vk::Rect2D content{{bounds.x, bounds.y}, {bounds.width, bounds.height}};
          const vk::Rect2D clip{{bounds.x, std::max(0, bounds.y)},
                               {bounds.width, std::min(bounds.height, frame->height)}};
 -        if (spectator && desktop_view == Core::Vr::DesktopView::Combined) {
-+        if (!theatre && spectator && desktop_view == Core::Vr::DesktopView::Combined) {
++        if (theatre_preview) {
++            const auto rects = Core::Vr::TheatrePreviewRects(
++                frame->width * 0.5f, static_cast<float>(frame->height),
++                static_cast<float>(eye_width) / eye_height);
++            std::array<HostPasses::PostProcessingPass::Region, 2> regions;
++            for (u32 eye = 0; eye < 2; ++eye) {
++                const auto& r = rects[eye];
++                regions[eye] = {
++                    .input = eye_views[0],
++                    .area = {{static_cast<s32>(r.x), static_cast<s32>(r.y)},
++                             {static_cast<u32>(r.width), static_cast<u32>(r.height)}},
++                    .clip = vk::Rect2D{{static_cast<s32>(eye * (frame->width / 2)), 0},
++                                      {frame->width / 2, frame->height}},
++                    .uv_transform = eye_uv[0],
++                };
++            }
++            pp_pass.Render(cmdbuf, regions, *frame, hmd_settings);
++        } else if (!theatre && spectator && desktop_view == Core::Vr::DesktopView::Combined) {
              const auto layout = Core::Vr::CombinedEyeRegions(content.extent.width, fov);
              const auto region_for = [&](u32 eye) {
                  const auto& region = layout[eye];
-@@ -1384,11 +1466,13 @@ HmdFrames Presenter::PrepareHmdFrame(std::span<const AmdGpu::Image, 2> eye_textu
+@@ -1384,11 +1485,13 @@ HmdFrames Presenter::PrepareHmdFrame(std::span<const AmdGpu::Image, 2> eye_textu
                                  .y = content.offset.y},
                          .extent{.width = region.width, .height = content.extent.height},
                      },
@@ -2458,7 +2507,7 @@ index 27d6f3e..e54bd98 100644
                  };
              };
              const std::array regions{region_for(0), region_for(1)};
-@@ -1396,15 +1480,17 @@ HmdFrames Presenter::PrepareHmdFrame(std::span<const AmdGpu::Image, 2> eye_textu
+@@ -1396,15 +1499,17 @@ HmdFrames Presenter::PrepareHmdFrame(std::span<const AmdGpu::Image, 2> eye_textu
              pp_pass.Render(cmdbuf, std::span{regions}.first(count), *frame, hmd_settings);
          } else if (spectator) {
              const std::array regions{
@@ -2479,7 +2528,7 @@ index 27d6f3e..e54bd98 100644
              // What the headset's app gets, as the eye copy left it (in the general layout).
              const auto copy_barrier = [&](vk::PipelineStageFlags2 src_stage,
                                            vk::AccessFlags2 src_access,
-@@ -1452,15 +1538,65 @@ HmdFrames Presenter::PrepareHmdFrame(std::span<const AmdGpu::Image, 2> eye_textu
+@@ -1452,15 +1557,65 @@ HmdFrames Presenter::PrepareHmdFrame(std::span<const AmdGpu::Image, 2> eye_textu
          // An image that encodes for display itself.
          auto local_settings = hmd_settings;
          local_settings.linear_out = 1;
@@ -2550,7 +2599,7 @@ index 27d6f3e..e54bd98 100644
      }
  
      // Flush frame creation commands.
-@@ -1472,7 +1608,11 @@ HmdFrames Presenter::PrepareHmdFrame(std::span<const AmdGpu::Image, 2> eye_textu
+@@ -1472,7 +1627,11 @@ HmdFrames Presenter::PrepareHmdFrame(std::span<const AmdGpu::Image, 2> eye_textu
          }
      }
      SubmitInfo info{};
@@ -2562,7 +2611,7 @@ index 27d6f3e..e54bd98 100644
      return {.shown = frame, .exported = local};
  }
  
-@@ -1830,7 +1970,8 @@ Frame* Presenter::PrepareBlankFrame(bool present_thread) {
+@@ -1830,7 +1989,8 @@ Frame* Presenter::PrepareBlankFrame(bool present_thread) {
  void Presenter::Present(Frame* frame, bool is_reusing_frame) {
      static std::atomic_uint32_t present_traces{};
      const u32 trace_id = present_traces.fetch_add(1, std::memory_order_relaxed);
@@ -2572,7 +2621,7 @@ index 27d6f3e..e54bd98 100644
          FrameStats::EndFrame();
      }
  
-@@ -1894,6 +2035,26 @@ void Presenter::Present(Frame* frame, bool is_reusing_frame) {
+@@ -1894,6 +2054,26 @@ void Presenter::Present(Frame* frame, bool is_reusing_frame) {
          free_cv.notify_one();
      };
  

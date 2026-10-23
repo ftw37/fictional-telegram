@@ -89,6 +89,10 @@ def main() -> int:
                    SHADPS4_VR_DESKTOP_GESTURES="1" if args.mode == "preview" else "0",
                    SHADPS4_VR_DESKTOP_VIEW="stereo", SHADPS4_DBG_EYE_SCAN="0",
                    SHADPS4_SHOT_SECONDS="0")
+        if args.mode == "preview":
+            env["SHADPS4_HTL_THEATRE_PREVIEW"] = "1"
+        else:
+            env.pop("SHADPS4_HTL_THEATRE_PREVIEW", None)
         if args.tv_preview and args.mode != "flat":
             env["SHADPS4_SOCIAL_PREVIEW"] = "1"
         else:
