@@ -14340,10 +14340,10 @@ index 0000000..023f8f8
 +} // namespace Core::Vr
 diff --git a/src/core/vr/openxr_host.cpp b/src/core/vr/openxr_host.cpp
 new file mode 100644
-index 0000000..57226d1
+index 0000000..11fa265
 --- /dev/null
 +++ b/src/core/vr/openxr_host.cpp
-@@ -0,0 +1,3013 @@
+@@ -0,0 +1,3018 @@
 +// SPDX-FileCopyrightText: Copyright 2026 shadPS4 Emulator Project
 +// SPDX-License-Identifier: GPL-2.0-or-later
 +
@@ -16343,6 +16343,11 @@ index 0000000..57226d1
 +                                          velocity.angularVelocity.z};
 +            }
 +            state.tracked = true;
++            if (head_tracked_frames == 0) {
++                LOG_INFO(Core, "Initial OpenXR head orientation: ({:.4f}, {:.4f}, {:.4f}, {:.4f})",
++                         state.pose.orientation.x, state.pose.orientation.y,
++                         state.pose.orientation.z, state.pose.orientation.w);
++            }
 +            // (SHADPS4_XR_HEAD=0, for tests: the head is somebody else's to move, a script's.)
 +            if (feed_head) {
 +                runtime.UpdateHead(state);
@@ -21313,16 +21318,17 @@ index 0000000..d046b00
 +} // namespace Input
 diff --git a/src/input/scripted_input.cpp b/src/input/scripted_input.cpp
 new file mode 100644
-index 0000000..9a6aa99
+index 0000000..eef1261
 --- /dev/null
 +++ b/src/input/scripted_input.cpp
-@@ -0,0 +1,388 @@
+@@ -0,0 +1,398 @@
 +// SPDX-FileCopyrightText: Copyright 2026 shadPS4 Emulator Project
 +// SPDX-License-Identifier: GPL-2.0-or-later
 +
 +#include <array>
 +#include <atomic>
 +#include <chrono>
++#include <cstdlib>
 +#include <fstream>
 +#include <numbers>
 +#include <optional>
@@ -21420,6 +21426,8 @@ index 0000000..9a6aa99
 +};
 +
 +std::vector<Step> ParseScript(const std::filesystem::path& script) {
++    const char* mode = std::getenv("SHADPS4_INPUT_BUTTONS_ONLY");
++    const bool buttons_only = mode && mode[0] == '1';
 +    std::vector<Step> steps;
 +    std::ifstream file{script};
 +    std::string line;
@@ -21438,6 +21446,10 @@ index 0000000..9a6aa99
 +        while (tokens >> token) {
 +            if (const auto it = ButtonNames.find(token); it != ButtonNames.end()) {
 +                step.buttons |= it->second;
++                continue;
++            }
++            if (buttons_only && !token.starts_with("lx=") && !token.starts_with("ly=") &&
++                !token.starts_with("rx=") && !token.starts_with("ry=")) {
 +                continue;
 +            }
 +            if (token.starts_with("head=")) {
@@ -21528,8 +21540,11 @@ index 0000000..9a6aa99
 +        last_end = std::max(last_end, step.end);
 +    }
 +
-+    // The script's poses are counted from where the player sits.
-+    Core::Vr::Runtime::Instance().FixSeat();
++    // Only pose scripts define their own seat; button replays use the real host's seat.
++    const char* buttons_mode = std::getenv("SHADPS4_INPUT_BUTTONS_ONLY");
++    if (!(buttons_mode && buttons_mode[0] == '1')) {
++        Core::Vr::Runtime::Instance().FixSeat();
++    }
 +    std::vector<bool> started(steps.size());
 +
 +    Buttons previous_buttons{Buttons::None};
@@ -23566,7 +23581,7 @@ index 2b0a821..1f6b871 100644
  #include <span>
  #include <string_view>
 diff --git a/src/video_core/buffer_cache/buffer_cache.cpp b/src/video_core/buffer_cache/buffer_cache.cpp
-index 86b6d7b..bc598f8 100644
+index 86b6d7b..d55476a 100644
 --- a/src/video_core/buffer_cache/buffer_cache.cpp
 +++ b/src/video_core/buffer_cache/buffer_cache.cpp
 @@ -3,6 +3,7 @@
@@ -23608,16 +23623,17 @@ index 86b6d7b..bc598f8 100644
          if (is_write) {
              memory_tracker->MarkRegionAsCpuModified(device_addr, size);
          }
-@@ -151,7 +158,7 @@ void BufferCache::ReadMemory(VAddr device_addr, u64 size, bool is_write, bool as
+@@ -151,7 +158,8 @@ void BufferCache::ReadMemory(VAddr device_addr, u64 size, bool is_write, bool as
      }
  }
  
 -void BufferCache::DownloadMemory(const Buffer* arena, VAddr device_addr, u64 size) {
 +void BufferCache::DownloadMemory(const Buffer* arena, VAddr device_addr, u64 size, bool async) {
++    const Vulkan::FrameStats::CallTimer timer{Vulkan::FrameStats::Call::MemoryReadback};
      boost::container::small_vector<vk::BufferCopy, 1> copies;
      u64 total_size_bytes = 0;
      const VAddr arena_base = arena->cpu_addr;
-@@ -175,26 +182,44 @@ void BufferCache::DownloadMemory(const Buffer* arena, VAddr device_addr, u64 siz
+@@ -175,26 +183,47 @@ void BufferCache::DownloadMemory(const Buffer* arena, VAddr device_addr, u64 siz
      if (total_size_bytes == 0) {
          return;
      }
@@ -23653,7 +23669,10 @@ index 86b6d7b..bc598f8 100644
 +    if (async) {
 +        scheduler.DeferOperation(std::move(write_data));
 +    } else {
-+        scheduler.Finish();
++        {
++            const Vulkan::FrameStats::CallTimer wait{Vulkan::FrameStats::Call::ReadbackWait};
++            scheduler.Finish();
++        }
 +        write_data();
      }
 -    memory_tracker->UnmarkRegionAsGpuModified(device_addr, size, false);
@@ -23672,7 +23691,7 @@ index 86b6d7b..bc598f8 100644
          const auto [data, offset] = stream_buffer.Map(size, instance.UniformMinAlignment());
          memory->CopySparseMemory(device_addr, data, size);
          stream_buffer.Commit();
-@@ -204,6 +229,9 @@ std::pair<const Buffer*, u64> BufferCache::ObtainBuffer(VAddr device_addr, u32 s
+@@ -204,6 +233,9 @@ std::pair<const Buffer*, u64> BufferCache::ObtainBuffer(VAddr device_addr, u32 s
      const u64 last_block = (device_addr + size - 1) >> block_shift;
      const auto* arena = GetArena(first_block, last_block);
      EnsureResident(arena, first_block, last_block);
@@ -23682,7 +23701,7 @@ index 86b6d7b..bc598f8 100644
      SynchronizeMemory(arena, device_addr, size, is_written, is_texel_buffer);
      if (is_written) {
          gpu_modified_ranges.Add(device_addr, size);
-@@ -213,7 +241,7 @@ std::pair<const Buffer*, u64> BufferCache::ObtainBuffer(VAddr device_addr, u32 s
+@@ -213,7 +245,7 @@ std::pair<const Buffer*, u64> BufferCache::ObtainBuffer(VAddr device_addr, u32 s
  
  std::pair<const Buffer*, u64> BufferCache::ObtainBufferForImage(VAddr device_addr, u32 size) {
      if (IsRegionGpuModified(device_addr, size)) {
@@ -23691,7 +23710,7 @@ index 86b6d7b..bc598f8 100644
      }
      const auto staging = staging_pool.Request(size, VideoCore::MemoryType::HostUncached,
                                                instance.StorageMinAlignment());
-@@ -230,6 +258,65 @@ bool BufferCache::IsRegionGpuModified(VAddr addr, size_t size) {
+@@ -230,6 +262,65 @@ bool BufferCache::IsRegionGpuModified(VAddr addr, size_t size) {
      return memory_tracker->IsRegionGpuModified(addr, size);
  }
  
@@ -25100,7 +25119,7 @@ index d5093ce..2986aa5 100644
          shader_stages.emplace_back(vk::PipelineShaderStageCreateInfo{
              .stage = vk::ShaderStageFlagBits::eTessellationEvaluation,
 diff --git a/src/video_core/renderer_vulkan/vk_instance.cpp b/src/video_core/renderer_vulkan/vk_instance.cpp
-index b3acd6e..8ba3651 100644
+index b3acd6e..18f4ed5 100644
 --- a/src/video_core/renderer_vulkan/vk_instance.cpp
 +++ b/src/video_core/renderer_vulkan/vk_instance.cpp
 @@ -1,3 +1,6 @@
@@ -25136,14 +25155,17 @@ index b3acd6e..8ba3651 100644
      if (physical_device_index < 0) {
          std::vector<
              std::tuple<size_t, vk::PhysicalDeviceProperties2, vk::PhysicalDeviceMemoryProperties>>
-@@ -228,8 +250,14 @@ bool Instance::CreateDevice() {
+@@ -228,8 +250,16 @@ bool Instance::CreateDevice() {
          return false;
      }
  
+-    boost::container::static_vector<const char*, 32> enabled_extensions;
 +#ifdef ENABLE_OPENXR_HOST
 +    const auto headset_extensions = Core::Vr::OpenXrHost::Instance().VulkanDeviceExtensions();
 +#endif
-     boost::container::static_vector<const char*, 32> enabled_extensions;
++    // OpenXR adds runtime-required extensions to the renderer's own list.
++    // Do not impose the desktop-only fixed capacity on that combined list.
++    std::vector<const char*> enabled_extensions;
      const auto add_extension = [&](std::string_view extension) -> bool {
 +        if (std::ranges::any_of(enabled_extensions,
 +                [&](const char* present) { return extension == present; })) return true;
@@ -25151,7 +25173,7 @@ index b3acd6e..8ba3651 100644
          const auto result =
              std::find_if(available_extensions.begin(), available_extensions.end(),
                           [&](const std::string& name) { return name == extension; });
-@@ -244,6 +272,11 @@ bool Instance::CreateDevice() {
+@@ -244,6 +274,11 @@ bool Instance::CreateDevice() {
          return false;
      };
  
@@ -25163,7 +25185,7 @@ index b3acd6e..8ba3651 100644
      // Required
      ASSERT_MSG(add_extension(VK_KHR_SWAPCHAIN_EXTENSION_NAME),
                 "Required Vulkan extension unavailable: {}", VK_KHR_SWAPCHAIN_EXTENSION_NAME);
-@@ -377,10 +410,11 @@ bool Instance::CreateDevice() {
+@@ -377,10 +412,11 @@ bool Instance::CreateDevice() {
          return false;
      }
  
@@ -25177,7 +25199,7 @@ index b3acd6e..8ba3651 100644
          .pQueuePriorities = queue_priorities.data(),
      };
  
-@@ -412,6 +446,7 @@ bool Instance::CreateDevice() {
+@@ -412,6 +448,7 @@ bool Instance::CreateDevice() {
                  .wideLines = features.wideLines,
                  .multiViewport = features.multiViewport,
                  .samplerAnisotropy = features.samplerAnisotropy,
@@ -25185,7 +25207,7 @@ index b3acd6e..8ba3651 100644
                  .vertexPipelineStoresAndAtomics = features.vertexPipelineStoresAndAtomics,
                  .fragmentStoresAndAtomics = features.fragmentStoresAndAtomics,
                  .shaderImageGatherExtended = features.shaderImageGatherExtended,
-@@ -427,6 +462,7 @@ bool Instance::CreateDevice() {
+@@ -427,6 +464,7 @@ bool Instance::CreateDevice() {
          },
          vk::PhysicalDeviceVulkan11Features{
              .storageBuffer16BitAccess = vk11_features.storageBuffer16BitAccess,
@@ -25193,7 +25215,7 @@ index b3acd6e..8ba3651 100644
              .shaderDrawParameters = vk11_features.shaderDrawParameters,
          },
          vk::PhysicalDeviceVulkan12Features{
-@@ -596,6 +632,8 @@ bool Instance::CreateDevice() {
+@@ -596,6 +634,8 @@ bool Instance::CreateDevice() {
  
      graphics_queue = device->getQueue(queue_family_index, 0);
      present_queue = device->getQueue(queue_family_index, 0);
@@ -27788,10 +27810,10 @@ index 7e1c025..04f11d5 100644
  
      if (memory_barrier.srcStageMask) {
 diff --git a/src/video_core/renderer_vulkan/vk_scheduler.cpp b/src/video_core/renderer_vulkan/vk_scheduler.cpp
-index 0cade2b..bce2d8b 100644
+index 0cade2b..0bf078f 100644
 --- a/src/video_core/renderer_vulkan/vk_scheduler.cpp
 +++ b/src/video_core/renderer_vulkan/vk_scheduler.cpp
-@@ -1,16 +1,673 @@
+@@ -1,16 +1,674 @@
 +#include "common/assert.h"
 +#include "common/debug.h"
 +#include "common/thread.h"
@@ -28142,7 +28164,8 @@ index 0cade2b..bce2d8b 100644
 +    "index buffer", "dynamic state", "pipeline", "pass begin", "pass end", "barrier", "submit",
 +    "pipeline lookup", "prepare targets", "bind resources", "HTL dependency (inclusive)",
 +    "buffer bindings", "texture bindings", "image range lookup",
-+    "pending operations", "resource access", "issue draw",
++    "pending operations", "resource access", "issue draw", "memory readback (inclusive)",
++    "readback GPU wait",
 +};
 +} // namespace
 +
@@ -28465,7 +28488,7 @@ index 0cade2b..bce2d8b 100644
  
  Scheduler::Scheduler(const Instance& instance)
      : instance{instance}, work_semaphore{instance}, command_pool{instance, &work_semaphore} {
-@@ -34,6 +691,7 @@ void Scheduler::BeginRendering(const RenderState& new_state) {
+@@ -34,6 +692,7 @@ void Scheduler::BeginRendering(const RenderState& new_state) {
      }
      EndRendering();
      is_rendering = true;
@@ -28473,7 +28496,7 @@ index 0cade2b..bce2d8b 100644
      render_state = new_state;
  
      std::array<vk::RenderingAttachmentInfo, 8> color_attachments;
-@@ -83,12 +741,32 @@ void Scheduler::BeginRendering(const RenderState& new_state) {
+@@ -83,12 +742,32 @@ void Scheduler::BeginRendering(const RenderState& new_state) {
      CommandBuffer().beginRendering(rendering_info);
  }
  
@@ -28507,7 +28530,7 @@ index 0cade2b..bce2d8b 100644
  }
  
  vk::CommandBuffer Scheduler::UploadCommandBuffer() {
-@@ -132,6 +810,7 @@ void Scheduler::Wait(u64 tick) {
+@@ -132,6 +811,7 @@ void Scheduler::Wait(u64 tick) {
  }
  
  void Scheduler::PopPendingOperations() {
@@ -28515,7 +28538,7 @@ index 0cade2b..bce2d8b 100644
      std::unique_lock lk(pending_ops_mutex);
      work_semaphore.Refresh();
      while (!pending_ops.empty() && work_semaphore.IsFree(pending_ops.front().gpu_tick)) {
-@@ -183,6 +862,7 @@ void Scheduler::EndSession() {
+@@ -183,6 +863,7 @@ void Scheduler::EndSession() {
  }
  
  void Scheduler::SubmitExecution(SubmitInfo& info) {
@@ -28524,7 +28547,7 @@ index 0cade2b..bce2d8b 100644
      const u64 signal_value = work_semaphore.NextTick();
  
 diff --git a/src/video_core/renderer_vulkan/vk_scheduler.h b/src/video_core/renderer_vulkan/vk_scheduler.h
-index 625b315..42f5efc 100644
+index 625b315..fd0cbff 100644
 --- a/src/video_core/renderer_vulkan/vk_scheduler.h
 +++ b/src/video_core/renderer_vulkan/vk_scheduler.h
 @@ -4,6 +4,8 @@
@@ -28536,7 +28559,7 @@ index 625b315..42f5efc 100644
  #include <mutex>
  #include <thread>
  #include <queue>
-@@ -54,6 +56,157 @@ struct RenderState {
+@@ -54,6 +56,159 @@ struct RenderState {
  };
  static_assert(std::has_unique_object_representations_v<RenderState>);
  
@@ -28566,6 +28589,8 @@ index 625b315..42f5efc 100644
 +        PendingOperations,
 +        ResourceAccess,
 +        IssueDraw,
++        MemoryReadback,
++        ReadbackWait,
 +        Count,
 +    };
 +    static bool CallTimesEnabled();
@@ -28694,7 +28719,7 @@ index 625b315..42f5efc 100644
  struct SubmitInfo {
      std::array<vk::Semaphore, 4> wait_semas;
      std::array<u64, 4> wait_ticks;
-@@ -376,7 +529,7 @@ public:
+@@ -376,7 +531,7 @@ public:
      void BeginRendering(const RenderState& new_state);
  
      /// Ends current rendering scope.
@@ -28703,7 +28728,7 @@ index 625b315..42f5efc 100644
  
      /// Starts a new session.
      void BeginSession();
-@@ -385,6 +538,9 @@ public:
+@@ -385,6 +540,9 @@ public:
      vk::CommandBuffer UploadCommandBuffer();
  
      /// Sets a function to be called on every session finalization.
@@ -28713,7 +28738,7 @@ index 625b315..42f5efc 100644
      void SetSessionCallback(SessionFunc&& on_session) {
          this->on_session = std::move(on_session);
      }
-@@ -423,6 +579,8 @@ public:
+@@ -423,6 +581,8 @@ public:
          return work_semaphore.IsFree(tick);
      }
  
@@ -28722,7 +28747,7 @@ index 625b315..42f5efc 100644
      /// Returns the scheduler timeline semaphore.
      [[nodiscard]] Semaphore* GetWorkSemaphore() noexcept {
          return &work_semaphore;
-@@ -460,6 +618,7 @@ private:
+@@ -460,6 +620,7 @@ private:
      CommandPool command_pool;
      DynamicState dynamic_state;
      SessionFunc on_session{};

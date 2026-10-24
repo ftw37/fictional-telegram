@@ -6,13 +6,14 @@ from subway_position import PositionReader
 
 def main():
     p=argparse.ArgumentParser(description=__doc__)
-    p.add_argument('--mode',choices=('preview','flat'),default='preview')
+    p.add_argument('--mode',choices=('preview','flat','quest'),default='preview')
     p.add_argument('--reset-progress',action='store_true',required=True)
     p.add_argument('--label',default=time.strftime('subway-%Y%m%d-%H%M%S'))
     p.add_argument('--development-root',type=Path,default=Path.home()/'Documents/Codex/HTL-Development')
     p.add_argument('--fresh-checkpoint',action='store_true',help='Archive this runtime checkpoint before New Game')
     p.add_argument('--new-game-first',action='store_true',help='Fresh profile has New Game as its first menu item')
     p.add_argument('--real-occlusion',action='store_true')
+    p.add_argument('--flashlight',action='store_true',help='Toggle the flashlight after the first-car spawn')
     p.add_argument('--renderer-sync',choices=('broad','upstream','pass','frame'),default='broad')
     p.add_argument('--startup-profile',choices=('legacy','stable020'),default='legacy')
     p.add_argument('--profile-render',action='store_true')
@@ -46,14 +47,14 @@ def main():
     script=out/'inputs.txt'
     menu_down,menu_start,menu_confirm,ready=(100,114,136,225) if a.startup_profile=='stable020' else (70,84,110,195)
     calibrate=94 if a.startup_profile=='stable020' else 50
-    script.write_text('0 7200 head=0,0,0,0,0,0 worn=1\n'
+    script.write_text(('0 7200\n' if a.mode=='quest' else '0 7200 head=0,0,0,0,0,0 worn=1\n')
                       +('' if a.mode=='flat' else f'{calibrate} 3 options\n')
                       +('' if a.new_game_first else f'{menu_down} 0.1 down\n')
                       +f'{menu_start} 0.3 cross\n{menu_confirm} 0.3 cross\n')
     process=subprocess.Popen([sys.executable,str(Path(__file__).with_name('launch_here_they_lie.py')),
         '--mode',a.mode,'--development-root',str(root),'--renderer-sync',a.renderer_sync,
         '--game',str(Path.home()/'Documents/Codex/HTL-Test/no-vignette-v1/uroot'),
-        '--replay',str(script),'--frame-stats']+(['--profile-render'] if a.profile_render else [])
+        '--replay-buttons' if a.mode=='quest' else '--replay',str(script),'--frame-stats']+(['--profile-render'] if a.profile_render else [])
         +(['--profile-cpu'] if a.profile_cpu else [])
         +(['--real-occlusion'] if a.real_occlusion else []))
     reader=None
@@ -87,6 +88,7 @@ def main():
             game='CUSA05344 01.00',route_version=3,mode=a.mode,barrier=a.renderer_sync,real_occlusion=a.real_occlusion,smooth_turning_required=True,
             runner_sha256=hashlib.sha256(Path(__file__).read_bytes()).hexdigest(),
             fresh_checkpoint=a.fresh_checkpoint,
+            flashlight=a.flashlight,
             profile_render=a.profile_render, compare_clean_upload=a.compare_clean_upload,
             profile_cpu=a.profile_cpu, compare_image_lookup=a.compare_image_lookup,
             launch_unix_seconds=active['started']),indent=2))
@@ -126,6 +128,9 @@ def main():
             event(experiment+'_restored_start',position=sample(),sample_duration_seconds=hold_seconds)
             time.sleep(hold_seconds)
             fastpath_flag.touch();time.sleep(1.5)
+        if a.flashlight:
+            pulse(.25,'circle')
+            event('flashlight_toggled',position=sample())
         event('route_start',position=sample())
         def align(target=0):
             for _ in range(35):

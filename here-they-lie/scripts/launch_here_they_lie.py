@@ -8,10 +8,31 @@ import argparse
 import ctypes
 import hashlib
 import json
+import math
 import os
 from pathlib import Path
 import subprocess
 import time
+
+
+def validate_button_replay(text: str) -> None:
+    buttons = set('cross circle square triangle up down left right l1 r1 l2 r2 l3 r3 options touchpad'.split())
+    for number, line in enumerate(text.splitlines(), 1):
+        fields = line.split('#', 1)[0].split()
+        if not fields:
+            continue
+        try:
+            start, hold = map(float, fields[:2])
+            if not all(math.isfinite(v) and v >= 0 for v in (start, hold)):
+                raise ValueError('invalid interval')
+            for token in fields[2:]:
+                if token in buttons:
+                    continue
+                name, value = token.split('=', 1)
+                if name not in ('lx', 'ly', 'rx', 'ry') or not 0 <= int(value) <= 255:
+                    raise ValueError('not a controller button or stick')
+        except (ValueError, TypeError) as error:
+            raise ValueError(f'Invalid buttons-only replay line {number}: {error}') from error
 
 
 def main() -> int:
@@ -21,7 +42,10 @@ def main() -> int:
                         default=Path.home() / "Documents/Codex/HTL-Development")
     parser.add_argument("--game", type=Path,
                         default=Path.home() / "Documents/Codex/HTL-Test/game/uroot")
-    parser.add_argument("--replay", type=Path, help="Optional diagnostic input script")
+    replay_group = parser.add_mutually_exclusive_group()
+    replay_group.add_argument("--replay", type=Path, help="Optional diagnostic input script, including poses")
+    replay_group.add_argument("--replay-buttons", type=Path,
+                              help="Replay only controller buttons and sticks; headset poses stay with OpenXR")
     parser.add_argument("--tv-preview", action="store_true",
                         help="Open the optional TV preview window (off by default)")
     parser.add_argument("--frame-stats", action="store_true",
@@ -44,6 +68,8 @@ def main() -> int:
         raise RuntimeError("The prepared emulator or your extracted game is missing.")
     if args.mode == "quest" and args.replay:
         raise RuntimeError("Use preview mode for scripted poses; Quest mode uses the headset.")
+    if args.replay_buttons:
+        validate_button_replay(args.replay_buttons.resolve(strict=True).read_text(encoding='utf-8'))
 
     # A named mutex prevents two copies of this launcher changing the game flags at once.
     kernel = ctypes.WinDLL("kernel32", use_last_error=True)
@@ -101,16 +127,16 @@ def main() -> int:
                    SHADPS4_VR_DESKTOP_GESTURES="1" if args.mode == "preview" else "0",
                    SHADPS4_VR_DESKTOP_VIEW="stereo", SHADPS4_DBG_EYE_SCAN="0",
                    SHADPS4_SHOT_SECONDS="0")
+        if args.profile_cpu:
+            env.update(SHADPS4_FRAME_STATS="1", SHADPS4_FRAME_STATS_EVERY="2",
+                       SHADPS4_DBG_CALL_TIMES="1")
+        if args.profile_render:
+            env.update(SHADPS4_FRAME_STATS="1", SHADPS4_FRAME_STATS_EVERY="2",
+                       SHADPS4_DBG_CALL_TIMES="1", SHADPS4_GPU_PROFILE="15")
+        if args.frame_stats:
+            env["SHADPS4_FRAME_STATS"] = "1"
+            env["SHADPS4_FRAME_STATS_EVERY"] = "2" if args.profile_render or args.profile_cpu else "5"
         if args.mode == "preview":
-            if args.profile_cpu:
-                env.update(SHADPS4_FRAME_STATS="1", SHADPS4_FRAME_STATS_EVERY="2",
-                           SHADPS4_DBG_CALL_TIMES="1")
-            if args.profile_render:
-                env.update(SHADPS4_FRAME_STATS="1", SHADPS4_FRAME_STATS_EVERY="2",
-                           SHADPS4_DBG_CALL_TIMES="1", SHADPS4_GPU_PROFILE="15")
-            if args.frame_stats:
-                env["SHADPS4_FRAME_STATS"] = "1"
-                env["SHADPS4_FRAME_STATS_EVERY"] = "2" if args.profile_render or args.profile_cpu else "5"
             env["SHADPS4_HTL_THEATRE_PREVIEW"] = "1"
         else:
             env.pop("SHADPS4_HTL_THEATRE_PREVIEW", None)
@@ -118,9 +144,11 @@ def main() -> int:
             env["SHADPS4_SOCIAL_PREVIEW"] = "1"
         else:
             env.pop("SHADPS4_SOCIAL_PREVIEW", None)
-        if args.replay:
-            env["SHADPS4_INPUT_SCRIPT"] = str(args.replay.resolve(strict=True))
-            env["SHADPS4_LIVE_INPUT"] = str(args.replay.resolve(strict=True))
+        replay = args.replay_buttons or args.replay
+        env["SHADPS4_INPUT_BUTTONS_ONLY"] = "1" if args.replay_buttons else "0"
+        if replay:
+            env["SHADPS4_INPUT_SCRIPT"] = str(replay.resolve(strict=True))
+            env["SHADPS4_LIVE_INPUT"] = str(replay.resolve(strict=True))
 
         commandline = game / "ue4commandline.txt"
         old_flags = commandline.read_bytes() if commandline.exists() else None

@@ -20,7 +20,16 @@ if (-not (Test-Path "$source/.git")) {
  if ($LASTEXITCODE -ne 0) { throw 'Pinned source checkout failed' }
 }
 if ((& git -C $source rev-parse HEAD) -ne $lock.commit) { throw 'Unexpected source revision; left untouched.' }
-& git -C $source submodule update --init --recursive --jobs 6
+$dependencySource = $source
+$externals = Get-Item -LiteralPath (Join-Path $source 'externals') -ErrorAction SilentlyContinue
+if ($externals -and ($externals.Attributes -band [IO.FileAttributes]::ReparsePoint)) {
+ $dependencySource = Join-Path $DevelopmentRoot 'upstream-shadps4'
+ $expectedTarget = [IO.Path]::GetFullPath((Join-Path $dependencySource 'externals'))
+ $actualTarget = [IO.Path]::GetFullPath([string]$externals.Target)
+ if ($actualTarget -ine $expectedTarget) { throw 'Unexpected dependency junction; left untouched.' }
+ if ((& git -C $dependencySource rev-parse HEAD) -ne $lock.commit) { throw 'Unexpected dependency owner revision' }
+}
+& git -C $dependencySource submodule update --init --recursive --jobs 6
 if ($LASTEXITCODE -ne 0) { throw 'Dependency checkout failed' }
 $sdk = Join-Path $source 'externals/openxr-sdk'
 if (-not (Test-Path "$sdk/CMakeLists.txt")) {
