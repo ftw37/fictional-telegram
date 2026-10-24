@@ -17,7 +17,7 @@ class Region(C.Structure):
                 ('protect', W.DWORD), ('type', W.DWORD)]
 
 class PositionReader:
-    def __init__(self, pid, executable):
+    def __init__(self, pid, executable, image_base=0x800000000):
         self.k = C.WinDLL('kernel32', use_last_error=True)
         self.k.OpenProcess.argtypes = [W.DWORD, W.BOOL, W.DWORD]
         self.k.OpenProcess.restype = W.HANDLE
@@ -38,6 +38,7 @@ class PositionReader:
             self.close()
             raise RuntimeError('Emulator identity mismatch')
         self.player = None
+        self.image_base = image_base
 
     def close(self):
         if self.handle:
@@ -74,7 +75,7 @@ class PositionReader:
             address = end
 
     def discover(self):
-        native = self.ptr(0x8042c4ae0)
+        native = self.ptr(self.image_base + 0x42c4ae0)
         if not native:
             raise RuntimeError('Player class unavailable; game build or startup state differs')
         meta = self.ptr(native + 0x10)
@@ -94,7 +95,7 @@ class PositionReader:
             for reference in self.find_references(cls):
                 obj = reference - 0x10
                 if self.read(obj + 8, 4) == struct.pack('<I', 0x48) and \
-                        0x803000000 < self.ptr(obj) < 0x805000000:
+                        self.image_base+0x3000000 < self.ptr(obj) < self.image_base+0x5000000:
                     players.append(obj)
         if len(set(players)) != 1:
             raise RuntimeError('Expected exactly one live player; wait for subway entry')

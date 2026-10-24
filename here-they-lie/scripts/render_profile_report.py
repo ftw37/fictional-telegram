@@ -37,6 +37,14 @@ def parse_log(text):
                     current['scopes_ms'][name.strip()]=float(ms)
             cpu=re.search(r'\(([\d.]+) ms of its time per frame\)',line)
             if cpu:current['translation_cpu_ms']=float(cpu[1])
+            intervals=re.search(r'rendered frame intervals: p50 ([\d.]+) ms; p95 ([\d.]+) ms; '
+                                r'p99 ([\d.]+) ms; max ([\d.]+) ms; over20 (\d+); over33 (\d+); samples (\d+)',line)
+            if intervals:
+                current['intervals_ms']={key:float(value) for key,value in
+                                         zip(('p50','p95','p99','max'),intervals.groups()[:4])}
+                current['intervals_over20']=int(intervals[5])
+                current['intervals_over33']=int(intervals[6])
+                current['interval_samples']=int(intervals[7])
         profile=re.search(r'GPU profile (\d+).*?: (\d+) draws .*? and (\d+) dispatches took '
                           r'([\d.]+) ms timed one by one: ([\d.]+) in themselves, ([\d.]+) in what came between',line)
         if profile:
@@ -66,6 +74,9 @@ def aligned_stages(events,windows):
         stages.append(dict(stage=start['event'],seconds=round(hi-lo,3),clean_windows=len(samples),
             median_fps=median('fps'),median_draws=median('draws'),
             median_translation_cpu_ms=median('translation_cpu_ms'),
+            worst_window_p99_ms=max((w['intervals_ms']['p99'] for w in samples
+                                     if 'intervals_ms' in w),default=None),
+            intervals_over33=sum(w.get('intervals_over33',0) for w in samples),
             scopes_median_ms={name:round(statistics.median(w['scopes_ms'][name]
                 for w in samples if name in w['scopes_ms']),3) for name in sorted(scope_names)}))
     return stages

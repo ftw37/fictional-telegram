@@ -5,6 +5,16 @@ sys.path.insert(0,str(Path(__file__).resolve().parents[1]/'scripts'))
 from render_profile_report import parse_log,aligned_stages
 
 class ClockAlignment(unittest.TestCase):
+    def test_frame_interval_report(self):
+        windows,_=parse_log('frame stats at 10 s: 60 fps; unix 100; window 5; frames 300\n'
+            'rendered frame intervals: p50 16.667 ms; p95 17.100 ms; p99 22.200 ms; '
+            'max 48.000 ms; over20 7; over33 2; samples 300')
+        self.assertEqual(windows[0]['intervals_ms']['p99'],22.2)
+        self.assertEqual(windows[0]['interval_samples'],300)
+        stage=aligned_stages([dict(event='start',unix_seconds=94),dict(event='end',unix_seconds=101)],windows)[0]
+        self.assertEqual(stage['worst_window_p99_ms'],22.2)
+        self.assertEqual(stage['intervals_over33'],2)
+
     def test_absolute_window_and_nested_scopes(self):
         text=('frame stats at 50 s: 11.0 fps, per frame 5500 passes, 5500 draws, GPU busy 45%; '
               'unix 100.000000; window 2.000000; frames 22\n'

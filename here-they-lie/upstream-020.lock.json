@@ -1,0 +1,26 @@
+{
+  "repository": "https://github.com/shadps4-emu/shadPS4.git",
+  "tag": "v.0.20.0",
+  "commit": "529ceb32f5546b820588f194b903cc39d08015fe",
+  "status": "experimental; not promoted to the normal launcher",
+  "vr_source_repository": "https://github.com/bigmak94/AstroQuest.git",
+  "vr_source_commit": "57650d2c5aeb09dda2689a2baad23396a9900c49",
+  "openxr_vendored_path": "shadps4-arm64-main/externals/openxr-sdk",
+  "official_fixes": [
+    "e6c79a5fe0ea2f3d03fcb9c5c50cf61af063f3f5",
+    "f9d07487dd85bb7dc522df6de109b8ad4b9b7175",
+    "e6faa2e3b6794a2fa79a709352ddfccfaa817ed1",
+    "626f3ace608f457579089d91b3746e6eb9970aed",
+    "d3ff0e0cc2c85729b9b7ad08766ada576a7f9bf7",
+    "699009c94932c64080391cf08d8131fc653ecee8",
+    "6752d8b19ec5e7f68302e7b5bebedf5447c78eac",
+    "0918faa0255e9816b795b62c9b09eaea51a1bc5e",
+    "eedf851ade3fdf4dac8c61774694aa0e8c736b23",
+    "78bedfac494fd5af824b150b3b9234d2dc711d46",
+    "603cff43dda6abe7596d8629fd690c3de94452ce",
+    "08225c2b356af5def13d78cd57f9d2263f8125a6",
+    "524be7c1d4c40b277ea2a54d47d5b9695328ed9e",
+    "82eb7cdf640990d2f5a2a3fa03b489f2b287b17e",
+    "a7d0fe3fdd24f154552b4daf819be75b6693620e"
+  ]
+}

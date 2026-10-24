@@ -1,13 +1,20 @@
 """Local CUSA05344 01.00 route: New Game to platform. Resets game progress."""
-import argparse, hashlib, json, math
+import argparse, hashlib, json, math, re
 from pathlib import Path
 import shutil, subprocess, sys, time
 from subway_position import PositionReader
 
 def main():
     p=argparse.ArgumentParser(description=__doc__)
+    p.add_argument('--mode',choices=('preview','flat'),default='preview')
     p.add_argument('--reset-progress',action='store_true',required=True)
     p.add_argument('--label',default=time.strftime('subway-%Y%m%d-%H%M%S'))
+    p.add_argument('--development-root',type=Path,default=Path.home()/'Documents/Codex/HTL-Development')
+    p.add_argument('--fresh-checkpoint',action='store_true',help='Archive this runtime checkpoint before New Game')
+    p.add_argument('--new-game-first',action='store_true',help='Fresh profile has New Game as its first menu item')
+    p.add_argument('--real-occlusion',action='store_true')
+    p.add_argument('--renderer-sync',choices=('broad','upstream','pass','frame'),default='broad')
+    p.add_argument('--startup-profile',choices=('legacy','stable020'),default='legacy')
     p.add_argument('--profile-render',action='store_true')
     p.add_argument('--profile-cpu',action='store_true')
     p.add_argument('--compare-image-lookup',action='store_true')
@@ -15,7 +22,7 @@ def main():
                    help='Diagnostic off/on/off comparison before traversal, then candidate route')
     a=p.parse_args()
     if not a.label.replace('-','').replace('_','').isalnum(): p.error('Use a plain label')
-    root=Path.home()/'Documents/Codex/HTL-Development'
+    root=a.development_root.resolve()
     if a.compare_clean_upload and a.compare_image_lookup:
         p.error('Compare one candidate at a time')
     comparing=a.compare_clean_upload or a.compare_image_lookup
@@ -27,12 +34,28 @@ def main():
         raise RuntimeError(f'Remove the existing diagnostic override first: {fastpath_flag}')
     out=root/'performance-runs'/a.label
     out.mkdir(parents=True,exist_ok=False)
+    if a.fresh_checkpoint:
+        checkpoint=(root/'test-vr/user/home/1000/savedata/CUSA05344/CheckpointSlot0').resolve()
+        archived=(out/'saved-checkpoint-before-run').resolve()
+        checkpoint.relative_to(root)
+        archived.relative_to(root)
+        if checkpoint.exists():
+            if checkpoint.is_symlink():raise RuntimeError('Checkpoint must be an ordinary directory')
+            shutil.move(str(checkpoint),str(archived))
+        a.new_game_first=True
     script=out/'inputs.txt'
-    script.write_text('0 7200 head=0,0,0,0,0,0 worn=1\n50 2 options\n70 0.1 down\n84 0.3 cross\n110 0.3 cross\n')
+    menu_down,menu_start,menu_confirm,ready=(100,114,136,225) if a.startup_profile=='stable020' else (70,84,110,195)
+    calibrate=94 if a.startup_profile=='stable020' else 50
+    script.write_text('0 7200 head=0,0,0,0,0,0 worn=1\n'
+                      +('' if a.mode=='flat' else f'{calibrate} 3 options\n')
+                      +('' if a.new_game_first else f'{menu_down} 0.1 down\n')
+                      +f'{menu_start} 0.3 cross\n{menu_confirm} 0.3 cross\n')
     process=subprocess.Popen([sys.executable,str(Path(__file__).with_name('launch_here_they_lie.py')),
-        '--mode','preview','--game',str(Path.home()/'Documents/Codex/HTL-Test/no-vignette-v1/uroot'),
+        '--mode',a.mode,'--development-root',str(root),'--renderer-sync',a.renderer_sync,
+        '--game',str(Path.home()/'Documents/Codex/HTL-Test/no-vignette-v1/uroot'),
         '--replay',str(script),'--frame-stats']+(['--profile-render'] if a.profile_render else [])
-        +(['--profile-cpu'] if a.profile_cpu else []))
+        +(['--profile-cpu'] if a.profile_cpu else [])
+        +(['--real-occlusion'] if a.real_occlusion else []))
     reader=None
     owns_fastpath_flag=False
     active=None
@@ -57,12 +80,13 @@ def main():
             except (OSError,ValueError):pass
             time.sleep(.2)
         if active is None:raise RuntimeError('No fresh emulator run')
-        event('startup_wait',until_emulator_seconds=195)
+        event('startup_wait',until_emulator_seconds=ready)
         exe=Path(active['exe'])
         (out/'metadata.json').write_text(json.dumps(dict(
             emulator_sha256=hashlib.sha256(exe.read_bytes()).hexdigest(),
-            game='CUSA05344 01.00',route_version=2,barrier='broad',smooth_turning_required=True,
+            game='CUSA05344 01.00',route_version=3,mode=a.mode,barrier=a.renderer_sync,real_occlusion=a.real_occlusion,smooth_turning_required=True,
             runner_sha256=hashlib.sha256(Path(__file__).read_bytes()).hexdigest(),
+            fresh_checkpoint=a.fresh_checkpoint,
             profile_render=a.profile_render, compare_clean_upload=a.compare_clean_upload,
             profile_cpu=a.profile_cpu, compare_image_lookup=a.compare_image_lookup,
             launch_unix_seconds=active['started']),indent=2))
@@ -73,10 +97,15 @@ def main():
             with script.open('a') as f:f.write(f'{start:.3f} {seconds:.3f} {tokens}\n')
             time.sleep(seconds+.35)
             return sample()
-        while time.time()-active['started']<195:
+        while time.time()-active['started']<ready:
             if process.poll() is not None:raise RuntimeError('Emulator exited during startup')
             time.sleep(.2)
-        reader=PositionReader(active['pid'],exe)
+        log_text=(root/'test-vr/user/log/shad_log.txt').read_text(errors='replace')
+        load=re.search(r'Loading module eboot\.bin to (0x[0-9a-fA-F]+)',log_text)
+        if not load:raise RuntimeError('Cannot identify the game executable mapping')
+        image_base=int(load[1],16)
+        event('executable_mapping',image_base=hex(image_base))
+        reader=PositionReader(active['pid'],exe,image_base=image_base)
         for attempt in range(4):
             try:state=reader.discover();break
             except RuntimeError:
@@ -84,6 +113,7 @@ def main():
                 time.sleep(10)
         if not (600<state['local'][0]<1000 and abs(state['local'][1])<150
                 and 60<state['local'][2]<110):
+            event('unexpected_start',position=state)
             raise RuntimeError('Startup did not reach the expected first-car spawn')
         if comparing:
             event(experiment+'_baseline_start',position=sample(),sample_duration_seconds=hold_seconds)
@@ -172,7 +202,8 @@ def main():
         # Finite pulses expire on failure; leave the game open for inspection.
         if reader:reader.close()
         if owns_fastpath_flag and fastpath_flag.exists():fastpath_flag.unlink()
-        for source in (root/'test-vr/user/log/shad_log.txt',root/'source-launcher-stdout.log'):
+        for source in (root/'test-vr/user/log/shad_log.txt',root/'source-launcher-stdout.log',
+                       root/'launch-manifest.json',root/'test-vr/user/config.json'):
             if source.exists():shutil.copy2(source,out/source.name)
     print(f'Run saved to {out}. Game remains open.',flush=True)
 

@@ -6,6 +6,7 @@ from __future__ import annotations
 
 import argparse
 import ctypes
+import hashlib
 import json
 import os
 from pathlib import Path
@@ -29,6 +30,9 @@ def main() -> int:
                         help="Diagnostic CPU call timing and one GPU frame every 15 seconds")
     parser.add_argument("--profile-cpu", action="store_true",
                         help="CPU call timing with aligned FPS windows and no GPU timestamp capture")
+    parser.add_argument("--real-occlusion", action="store_true", help="Experimental GPU visibility counters")
+    parser.add_argument("--renderer-sync", choices=("broad", "upstream", "pass", "frame"), default="broad",
+                        help="Isolated renderer comparison; upstream omits the HTL per-draw workaround")
     parser.add_argument("--fast-graphics", action="store_true",
                         help="Diagnostic graphics-state rebinding (reported visual glitches; not recommended)")
     args = parser.parse_args()
@@ -86,8 +90,10 @@ def main() -> int:
                    SHADPS4_HTL_AUTO_CALIBRATE="1" if args.mode == "quest" else "0",
                    SHADPS4_HTL_THEATRE="1" if args.mode == "quest" else "0",
                    SHADPS4_HTL_XR_FLIP_Y="1" if args.mode == "quest" else "0",
-                   SHADPS4_HTL_FRAME_SYNC="0", SHADPS4_HTL_DRAW_SYNC="0",
-                   SHADPS4_HTL_GPU_BARRIER="1",
+                   SHADPS4_HTL_FRAME_SYNC="1" if args.renderer_sync == "frame" else "0", SHADPS4_HTL_DRAW_SYNC="0",
+                   SHADPS4_HTL_OCCLUSION="1" if args.real_occlusion else "0",
+                   SHADPS4_HTL_PASS_DEPENDENCY="1" if args.renderer_sync in ("pass", "broad", "frame") else "0",
+                   SHADPS4_HTL_GPU_BARRIER="1" if args.renderer_sync == "broad" else "0",
                    SHADPS4_HTL_BARRIER_MODE="pipeline" if args.fast_graphics else "broad",
                    SHADPS4_HTL_FX2="1", SHADPS4_HTL_AUDIO_DB="1",
                    SHADPS4_OPENXR="1" if args.mode == "quest" else "0",
@@ -125,6 +131,21 @@ def main() -> int:
                             encoding="utf-8")
         commandline.write_bytes(flags)
         try:
+            # Private local provenance: retain the actual settings and selected runtime flags.
+            manifest = dict(executable_sha256=hashlib.sha256(exe.read_bytes()).hexdigest(),
+                            mode=args.mode, runtime=str(runtime),
+                            settings={}, flags={k:v for k,v in env.items()
+                                               if k.startswith('SHADPS4_')},
+                            diagnostic_files=sorted(p.name for p in (runtime/'user').glob('htl-*')))
+            for name in ('config.json', 'vr_headset_fov.json'):
+                path=runtime/'user'/name
+                if path.exists():
+                    data=path.read_bytes()
+                    manifest['settings'][name]=dict(sha256=hashlib.sha256(data).hexdigest(),
+                                                    content=json.loads(data))
+            manifest['cache_files_before']=sum(1 for directory in ('cache','shader')
+                for p in (runtime/'user'/directory).rglob('*') if p.is_file())
+            (root/'launch-manifest.json').write_text(json.dumps(manifest,indent=2),encoding='utf-8')
             with (root / "source-launcher-stdout.log").open("w", encoding="utf-8") as log:
                 process = subprocess.Popen(
                     [str(exe), "-g", str(game / "eboot.bin"), "--ignore-game-patch",
