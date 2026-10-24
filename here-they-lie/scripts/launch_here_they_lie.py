@@ -25,6 +25,10 @@ def main() -> int:
                         help="Open the optional TV preview window (off by default)")
     parser.add_argument("--frame-stats", action="store_true",
                         help="Collect lightweight frame timing for route comparisons")
+    parser.add_argument("--profile-render", action="store_true",
+                        help="Diagnostic CPU call timing and one GPU frame every 15 seconds")
+    parser.add_argument("--profile-cpu", action="store_true",
+                        help="CPU call timing with aligned FPS windows and no GPU timestamp capture")
     parser.add_argument("--fast-graphics", action="store_true",
                         help="Diagnostic graphics-state rebinding (reported visual glitches; not recommended)")
     args = parser.parse_args()
@@ -92,9 +96,15 @@ def main() -> int:
                    SHADPS4_VR_DESKTOP_VIEW="stereo", SHADPS4_DBG_EYE_SCAN="0",
                    SHADPS4_SHOT_SECONDS="0")
         if args.mode == "preview":
+            if args.profile_cpu:
+                env.update(SHADPS4_FRAME_STATS="1", SHADPS4_FRAME_STATS_EVERY="2",
+                           SHADPS4_DBG_CALL_TIMES="1")
+            if args.profile_render:
+                env.update(SHADPS4_FRAME_STATS="1", SHADPS4_FRAME_STATS_EVERY="2",
+                           SHADPS4_DBG_CALL_TIMES="1", SHADPS4_GPU_PROFILE="15")
             if args.frame_stats:
                 env["SHADPS4_FRAME_STATS"] = "1"
-                env["SHADPS4_FRAME_STATS_EVERY"] = "5"
+                env["SHADPS4_FRAME_STATS_EVERY"] = "2" if args.profile_render or args.profile_cpu else "5"
             env["SHADPS4_HTL_THEATRE_PREVIEW"] = "1"
         else:
             env.pop("SHADPS4_HTL_THEATRE_PREVIEW", None)

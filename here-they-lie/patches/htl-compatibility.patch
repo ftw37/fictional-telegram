@@ -1402,10 +1402,10 @@ index eee2ee4..884ace9 100644
      if (VirtualQuery(reinterpret_cast<const void*>(context.Rsp), &stack, sizeof(stack)) == 0 ||
 diff --git a/shadps4-arm64-main/src/core/vr/htl_diagnostics.h b/shadps4-arm64-main/src/core/vr/htl_diagnostics.h
 new file mode 100644
-index 0000000..ccd017f
+index 0000000..fee0a7a
 --- /dev/null
 +++ b/shadps4-arm64-main/src/core/vr/htl_diagnostics.h
-@@ -0,0 +1,45 @@
+@@ -0,0 +1,49 @@
 +// SPDX-License-Identifier: GPL-2.0-or-later
 +#pragma once
 +#include <atomic>
@@ -1416,7 +1416,7 @@ index 0000000..ccd017f
 +#include <string>
 +namespace Core::Vr {
 +inline std::atomic_bool htl_sync_gpu{}, htl_sync_frame{}, htl_snapshot_constants{};
-+inline std::atomic_bool htl_gpu_barrier{};
++inline std::atomic_bool htl_gpu_barrier{}, htl_clean_upload_fastpath{}, htl_exact_image_lookup{};
 +inline std::atomic_bool htl_no_present{};
 +inline std::atomic_int htl_barrier_mode{};
 +inline void PollHtlDiagnostics() {
@@ -1429,6 +1429,10 @@ index 0000000..ccd017f
 +        return;
 +    next = now + std::chrono::seconds(1);
 +    std::error_code error;
++    htl_exact_image_lookup =
++        std::filesystem::exists("user/htl-exact-image-lookup", error);
++    htl_clean_upload_fastpath =
++        std::filesystem::exists("user/htl-clean-upload-fastpath", error);
 +    const char* draw_sync = std::getenv("SHADPS4_HTL_DRAW_SYNC");
 +    htl_sync_gpu = (draw_sync && draw_sync[0] == '1') ||
 +                   std::filesystem::exists("user/htl-sync-gpu", error);
@@ -2088,10 +2092,34 @@ index 74526c6..b5280f3 100644
      bool is_open{true};
  };
 diff --git a/shadps4-arm64-main/src/video_core/buffer_cache/region_manager.h b/shadps4-arm64-main/src/video_core/buffer_cache/region_manager.h
-index a8dea17..a4a6ea6 100644
+index a8dea17..c0f2736 100644
 --- a/shadps4-arm64-main/src/video_core/buffer_cache/region_manager.h
 +++ b/shadps4-arm64-main/src/video_core/buffer_cache/region_manager.h
-@@ -161,8 +161,7 @@ public:
+@@ -8,6 +8,7 @@
+ #include "common/div_ceil.h"
+ #include "common/logging/log.h"
+ #include "core/emulator_settings.h"
++#include "core/vr/htl_diagnostics.h"
+ 
+ #ifdef __unix__
+ #include "common/adaptive_mutex.h"
+@@ -125,6 +126,15 @@ public:
+         }
+ 
+         RegionBits& bits = GetRegionBits<type>();
++        // A clean upload range produces no callbacks and clearing it changes no bits.
++        // Preserve protection updates: they can also reflect changes outside this range.
++        if constexpr (type == Type::CPU && clear) {
++            if (Core::Vr::htl_clean_upload_fastpath.load(std::memory_order_relaxed) &&
++                !bits.Any(start_page, end_page)) {
++                UpdateProtection<true, false>();
++                return;
++            }
++        }
+         RegionBits mask(bits, start_page, end_page);
+ 
+         if constexpr (clear) {
+@@ -161,8 +171,7 @@ public:
          }
  
          const RegionBits& bits = GetRegionBits<type>();
@@ -2210,6 +2238,30 @@ index 8411dcb..759fb15 100644
  }
  
  /// Float32 sanity of the ReadConst guest window. NaN/Inf while the mesh explodes
+diff --git a/shadps4-arm64-main/src/video_core/renderer_vulkan/vk_gpu_profile.cpp b/shadps4-arm64-main/src/video_core/renderer_vulkan/vk_gpu_profile.cpp
+index d3dc057..4b79e44 100644
+--- a/shadps4-arm64-main/src/video_core/renderer_vulkan/vk_gpu_profile.cpp
++++ b/shadps4-arm64-main/src/video_core/renderer_vulkan/vk_gpu_profile.cpp
+@@ -196,6 +196,9 @@ void GpuProfile::TakeFrame() {
+     if (state == State::Waiting && pool &&
+         std::chrono::steady_clock::now() - last_profile >=
+             std::chrono::duration<double>(ProfileInterval())) {
++        LOG_INFO(Render_Vulkan, "GPU_PROFILE_CLOCK frame={} unix={:.6f}", frames,
++                 std::chrono::duration<double>(
++                     std::chrono::system_clock::now().time_since_epoch()).count());
+         state = State::Recording;
+         recorded_b = FrameStats::AbOff("eye2") || FrameStats::AbOff();
+         records.reserve(MaxQueries / 2);
+@@ -235,6 +238,9 @@ void GpuProfile::After() {
+ }
+ 
+ void GpuProfile::Read(std::vector<Record> taken) {
++    LOG_INFO(Render_Vulkan, "GPU_PROFILE_END sequence={} unix={:.6f}", frames_recorded + 1,
++             std::chrono::duration<double>(
++                 std::chrono::system_clock::now().time_since_epoch()).count());
+     const auto device = instance.GetDevice();
+     const u32 count = static_cast<u32>(taken.size()) * 2;
+     std::vector<u64> stamps(count);
 diff --git a/shadps4-arm64-main/src/video_core/renderer_vulkan/vk_pipeline_cache.cpp b/shadps4-arm64-main/src/video_core/renderer_vulkan/vk_pipeline_cache.cpp
 index 238242f..1c7f716 100644
 --- a/shadps4-arm64-main/src/video_core/renderer_vulkan/vk_pipeline_cache.cpp
@@ -2679,7 +2731,7 @@ index 2be4125..a50ffc4 100644
      /// Hands a frame made by PrepareHmdFrame to the VR host. Returns false for a frame that is
      /// not one of the host's, which has to be presented as usual.
 diff --git a/shadps4-arm64-main/src/video_core/renderer_vulkan/vk_rasterizer.cpp b/shadps4-arm64-main/src/video_core/renderer_vulkan/vk_rasterizer.cpp
-index 7a284db..27c5856 100644
+index 7a284db..6e37cbb 100644
 --- a/shadps4-arm64-main/src/video_core/renderer_vulkan/vk_rasterizer.cpp
 +++ b/shadps4-arm64-main/src/video_core/renderer_vulkan/vk_rasterizer.cpp
 @@ -1,3 +1,4 @@
@@ -2695,7 +2747,7 @@ index 7a284db..27c5856 100644
  
  #include <vk_mem_alloc.h>
  #include "video_core/texture_cache/image_view.h"
-@@ -88,6 +90,44 @@ static bool TraceDraw() {
+@@ -88,6 +90,45 @@ static bool TraceDraw() {
      return g_draw_trace_budget.fetch_sub(1) > 0;
  }
  
@@ -2703,6 +2755,7 @@ index 7a284db..27c5856 100644
 +    if (!Core::Vr::htl_gpu_barrier.load(std::memory_order_relaxed)) {
 +        return;
 +    }
++    const FrameStats::CallTimer dependency_timer{FrameStats::Call::HtlDependency};
 +    const int mode = Core::Vr::htl_barrier_mode.load(std::memory_order_relaxed);
 +    static int logged_mode = -1;
 +    if (logged_mode != mode) {
@@ -2740,7 +2793,44 @@ index 7a284db..27c5856 100644
  void Rasterizer::CpSync() {
      scheduler.EndRendering();
      auto cmdbuf = scheduler.CommandBuffer();
-@@ -417,10 +457,14 @@ void Rasterizer::Draw(bool is_indexed, u32 index_offset) {
+@@ -317,7 +358,11 @@ void Rasterizer::Draw(bool is_indexed, u32 index_offset) {
+         return;
+     }
+     const auto& regs = liverpool->regs;
+-    const GraphicsPipeline* pipeline = pipeline_cache.GetGraphicsPipeline();
++    const GraphicsPipeline* pipeline;
++    {
++        const FrameStats::CallTimer timer{FrameStats::Call::PipelineLookup};
++        pipeline = pipeline_cache.GetGraphicsPipeline();
++    }
+     if (pipeline != nullptr && !in_target_passes) {
+         if (const auto passes = SharedTargetPasses(pipeline->GetGraphicsKey().mrt_mask);
+             passes.size() > 1) {
+@@ -394,7 +439,10 @@ void Rasterizer::Draw(bool is_indexed, u32 index_offset) {
+         return;
+     }
+ 
+-    PrepareRenderState(pipeline);
++    {
++        const FrameStats::CallTimer timer{FrameStats::Call::PrepareTargets};
++        PrepareRenderState(pipeline);
++    }
+     // A draw that writes nothing changes nothing: the console's GPU only counts what such a
+     // draw would let through, for occlusion queries, and those counts are made up here anyway.
+     // (Astro Bot has 45 of them in each eye's depth pass.) SHADPS4_SKIP_EMPTY_DRAWS=0 keeps
+@@ -411,16 +459,25 @@ void Rasterizer::Draw(bool is_indexed, u32 index_offset) {
+         ResetBindings();
+         return;
+     }
+-    if (!BindResources(pipeline)) {
++    bool resources_bound;
++    {
++        const FrameStats::CallTimer timer{FrameStats::Call::BindResources};
++        resources_bound = BindResources(pipeline);
++    }
++    if (!resources_bound) {
+         if (trace) {
+             LOG_INFO(Render_Vulkan, "TRACE   draw dropped: resources could not be bound");
          }
          return;
      }
@@ -2755,7 +2845,7 @@ index 7a284db..27c5856 100644
          return;
      }
  
-@@ -473,6 +517,9 @@ void Rasterizer::Draw(bool is_indexed, u32 index_offset) {
+@@ -473,6 +530,9 @@ void Rasterizer::Draw(bool is_indexed, u32 index_offset) {
  
      ResetBindings();
      RetireIsolatedReadConstSnapshots();
@@ -2765,7 +2855,7 @@ index 7a284db..27c5856 100644
  }
  
  bool Rasterizer::DrawsNothing(const GraphicsPipeline* pipeline) const {
-@@ -732,6 +779,7 @@ void Rasterizer::DrawIndirect(bool is_indexed, VAddr arg_address, u32 offset, u3
+@@ -732,6 +792,7 @@ void Rasterizer::DrawIndirect(bool is_indexed, VAddr arg_address, u32 offset, u3
      if (!BindResources(pipeline)) {
          return;
      }
@@ -2773,7 +2863,7 @@ index 7a284db..27c5856 100644
      const auto state = BeginRendering(pipeline);
  
      buffer_cache.BindVertexBuffers(*pipeline);
-@@ -786,6 +834,9 @@ void Rasterizer::DrawIndirect(bool is_indexed, VAddr arg_address, u32 offset, u3
+@@ -786,6 +847,9 @@ void Rasterizer::DrawIndirect(bool is_indexed, VAddr arg_address, u32 offset, u3
  
      ResetBindings();
      RetireIsolatedReadConstSnapshots();
@@ -2783,7 +2873,7 @@ index 7a284db..27c5856 100644
  }
  
  void Rasterizer::DispatchDirect() {
-@@ -811,6 +862,7 @@ void Rasterizer::DispatchDirect() {
+@@ -811,6 +875,7 @@ void Rasterizer::DispatchDirect() {
  
      const auto& cs = pipeline->GetStage(Shader::LogicalStage::Compute);
      if (ExecuteShaderHLE(cs, liverpool->regs, cs_program, *this)) {
@@ -2791,7 +2881,7 @@ index 7a284db..27c5856 100644
          if (trace) {
              LOG_INFO(Render_Vulkan, "TRACE   dispatch handled by shader HLE");
          }
-@@ -825,6 +877,7 @@ void Rasterizer::DispatchDirect() {
+@@ -825,6 +890,7 @@ void Rasterizer::DispatchDirect() {
      }
  
      scheduler.EndRendering();
@@ -2799,7 +2889,7 @@ index 7a284db..27c5856 100644
      pipeline->BindResources(set_writes, buffer_barriers, push_data);
  
      const auto cmdbuf = scheduler.CommandBuffer();
-@@ -860,6 +913,7 @@ void Rasterizer::DispatchIndirect(VAddr address, u32 offset, u32 size) {
+@@ -860,6 +926,7 @@ void Rasterizer::DispatchIndirect(VAddr address, u32 offset, u32 size) {
      const auto [buffer, base] = buffer_cache.ObtainBuffer(address + offset, size, false);
  
      scheduler.EndRendering();
@@ -2807,6 +2897,22 @@ index 7a284db..27c5856 100644
      pipeline->BindResources(set_writes, buffer_barriers, push_data);
  
      const auto cmdbuf = scheduler.CommandBuffer();
+@@ -1121,6 +1188,7 @@ bool Rasterizer::IsComputeImageClear(const Pipeline* pipeline) {
+ 
+ void Rasterizer::BindBuffers(const Shader::Info& stage, Shader::Backend::Bindings& binding,
+                              Shader::PushData& push_data) {
++    const FrameStats::CallTimer timer{FrameStats::Call::BufferBindings};
+     buffer_bindings.clear();
+ 
+     for (const auto& desc : stage.buffers) {
+@@ -1288,6 +1356,7 @@ void Rasterizer::RetireIsolatedReadConstSnapshots() {
+ }
+ 
+ void Rasterizer::BindTextures(const Shader::Info& stage, Shader::Backend::Bindings& binding) {
++    const FrameStats::CallTimer timer{FrameStats::Call::TextureBindings};
+     image_bindings.clear();
+     const u32 first_image_idx = image_infos.size();
+     // For loading/storing to explicit mip levels, when no native instruction support, bind an array
 diff --git a/shadps4-arm64-main/src/video_core/renderer_vulkan/vk_rasterizer.h b/shadps4-arm64-main/src/video_core/renderer_vulkan/vk_rasterizer.h
 index 8f61669..e904d2f 100644
 --- a/shadps4-arm64-main/src/video_core/renderer_vulkan/vk_rasterizer.h
@@ -2820,11 +2926,74 @@ index 8f61669..e904d2f 100644
      void PrepareRenderState(const GraphicsPipeline* pipeline);
      RenderState BeginRendering(const GraphicsPipeline* pipeline);
      void Resolve();
+diff --git a/shadps4-arm64-main/src/video_core/renderer_vulkan/vk_scheduler.cpp b/shadps4-arm64-main/src/video_core/renderer_vulkan/vk_scheduler.cpp
+index 5105e1c..fe9c9e3 100644
+--- a/shadps4-arm64-main/src/video_core/renderer_vulkan/vk_scheduler.cpp
++++ b/shadps4-arm64-main/src/video_core/renderer_vulkan/vk_scheduler.cpp
+@@ -340,6 +340,8 @@ std::array<std::atomic<u64>, static_cast<size_t>(FrameStats::Call::Count)> g_cal
+ constexpr const char* CallNames[] = {
+     "draw", "push constants", "push descriptors", "vertex input", "vertex buffers",
+     "index buffer", "dynamic state", "pipeline", "pass begin", "pass end", "barrier", "submit",
++    "pipeline lookup", "prepare targets", "bind resources", "HTL dependency (inclusive)",
++    "buffer bindings", "texture bindings", "image range lookup",
+ };
+ } // namespace
+ 
+@@ -561,10 +563,13 @@ void FrameStats::EndFrame() {
+     }
+     LOG_INFO(Render_Vulkan,
+              "frame stats at {:.0f} s{}: {:.1f} fps, per frame {:.1f} passes ({:.1f} loading their "
+-             "targets, {:.1f} Mpx), {:.0f} draws, {:.1f} dispatches, {:.1f} submits{}",
++             "targets, {:.1f} Mpx), {:.0f} draws, {:.1f} dispatches, {:.1f} submits{}; "
++             "unix {:.6f}; window {:.6f}; frames {}",
+              std::chrono::duration<double>(now - start).count(), ab, n / seconds,
+              c.passes.Take() / n, c.loading_passes.Take() / n, c.pass_pixels.Take() / n / 1e6,
+-             c.draws.Take() / n, c.computes.Take() / n, c.submits.Take() / n, gpu);
++             c.draws.Take() / n, c.computes.Take() / n, c.submits.Take() / n, gpu,
++             std::chrono::duration<double>(std::chrono::system_clock::now().time_since_epoch()).count(),
++             seconds, frames);
+     const auto stage_ms = [](Stage stage) {
+         const u64 total = g_stage_times.total[static_cast<size_t>(stage)].exchange(0);
+         const u64 count = g_stage_times.count[static_cast<size_t>(stage)].exchange(0);
+@@ -602,18 +607,16 @@ void FrameStats::EndFrame() {
+     }
+     if (CallTimesEnabled()) {
+         std::string calls;
+-        double total_ms = 0.0;
+         for (size_t i = 0; i < g_call_ns.size(); ++i) {
+             const double ms = static_cast<double>(g_call_ns[i].exchange(0)) / n / 1e6;
+             const double count = static_cast<double>(g_call_count[i].exchange(0)) / n;
+             if (count == 0.0) {
+                 continue;
+             }
+-            total_ms += ms;
+             calls += fmt::format("{}{} {:.0f}x {:.2f} ms", calls.empty() ? "" : ", ", CallNames[i],
+                                  count, ms);
+         }
+-        LOG_INFO(Render_Vulkan, "driver calls per frame: {:.2f} ms in all: {}", total_ms, calls);
++        LOG_INFO(Render_Vulkan, "CPU/driver scopes per frame (overlap; not additive): {}", calls);
+     }
+     c.frames = 0;
+     c.since = now;
 diff --git a/shadps4-arm64-main/src/video_core/renderer_vulkan/vk_scheduler.h b/shadps4-arm64-main/src/video_core/renderer_vulkan/vk_scheduler.h
-index a5481f8..abde62b 100644
+index a5481f8..18eafa2 100644
 --- a/shadps4-arm64-main/src/video_core/renderer_vulkan/vk_scheduler.h
 +++ b/shadps4-arm64-main/src/video_core/renderer_vulkan/vk_scheduler.h
-@@ -543,6 +543,10 @@ public:
+@@ -78,6 +78,13 @@ struct FrameStats {
+         EndRendering,
+         Barrier,
+         Submit,
++        PipelineLookup,
++        PrepareTargets,
++        BindResources,
++        HtlDependency,
++        BufferBindings,
++        TextureBindings,
++        ImageRangeLookup,
+         Count,
+     };
+     static bool CallTimesEnabled();
+@@ -543,6 +550,10 @@ public:
          }
      }
  
@@ -2858,10 +3027,26 @@ index f131a31..d3ad21f 100644
  
                  constexpr auto write_flags = vk::AccessFlagBits2::eTransferWrite |
 diff --git a/shadps4-arm64-main/src/video_core/texture_cache/texture_cache.cpp b/shadps4-arm64-main/src/video_core/texture_cache/texture_cache.cpp
-index 0d6ccb3..829f5f3 100644
+index 0d6ccb3..00bfbd2 100644
 --- a/shadps4-arm64-main/src/video_core/texture_cache/texture_cache.cpp
 +++ b/shadps4-arm64-main/src/video_core/texture_cache/texture_cache.cpp
-@@ -309,7 +309,7 @@ ImageId TextureCache::ResolveDepthOverlap(const ImageInfo& requested_info, Bindi
+@@ -4,6 +4,7 @@
+ #include <xxhash.h>
+ 
+ #include <cstdlib>
++#include <limits>
+ #include <mutex>
+ #include <string>
+ #include <unordered_set>
+@@ -14,6 +15,7 @@
+ #include "common/debug.h"
+ #include "common/div_ceil.h"
+ #include "common/logging/log.h"
++#include "core/vr/htl_diagnostics.h"
+ #include "common/scope_exit.h"
+ #include "core/emulator_settings.h"
+ #include "core/memory.h"
+@@ -309,7 +311,7 @@ ImageId TextureCache::ResolveDepthOverlap(const ImageInfo& requested_info, Bindi
      const bool bpp_match = requested_info.num_bits == cache_image.info.num_bits;
  
      // If an image in the cache has less slices we need to expand it
@@ -2870,7 +3055,7 @@ index 0d6ccb3..829f5f3 100644
  
      switch (binding) {
      case BindingType::Texture:
-@@ -343,7 +343,10 @@ ImageId TextureCache::ResolveDepthOverlap(const ImageInfo& requested_info, Bindi
+@@ -343,7 +345,10 @@ ImageId TextureCache::ResolveDepthOverlap(const ImageInfo& requested_info, Bindi
  
      if (recreate) {
          auto new_info = requested_info;
@@ -2882,7 +3067,7 @@ index 0d6ccb3..829f5f3 100644
          const auto new_image_id =
              slot_images.insert(instance, scheduler, blit_helper, slot_image_views, new_info);
          RegisterImage(new_image_id);
-@@ -501,7 +504,8 @@ std::tuple<ImageId, int, int> TextureCache::ResolveOverlap(const ImageInfo& imag
+@@ -501,7 +506,8 @@ std::tuple<ImageId, int, int> TextureCache::ResolveOverlap(const ImageInfo& imag
  
          // Size and resources are greater, expand the image.
          if (image_info.type == cache_image.info.type &&
@@ -2892,7 +3077,7 @@ index 0d6ccb3..829f5f3 100644
              return {ExpandImage(image_info, cache_image_id), -1, -1};
          }
  
-@@ -711,7 +715,7 @@ ImageId TextureCache::FindImage(ImageDesc& desc, bool exact_fmt) {
+@@ -711,7 +717,7 @@ ImageId TextureCache::FindImage(ImageDesc& desc, bool exact_fmt) {
              IsVulkanFormatCompatible(image.info.pixel_format, info.pixel_format) &&
              IsViewTypeCompatible(info.type, image.info.type) &&
              (!exact_fmt || info.pixel_format == image.info.pixel_format) &&
@@ -2901,7 +3086,7 @@ index 0d6ccb3..829f5f3 100644
              image.tick_accessed_last = scheduler.CurrentTick();
              TouchImage(image);
              Vulkan::FrameStats::Add(Vulkan::FrameStats::Counter::ImageLookupsShort);
-@@ -773,7 +777,7 @@ ImageId TextureCache::FindImage(ImageDesc& desc, bool exact_fmt) {
+@@ -773,7 +779,7 @@ ImageId TextureCache::FindImage(ImageDesc& desc, bool exact_fmt) {
          if (exact_fmt && info.pixel_format != image_resolved.info.pixel_format) {
              // Cannot reuse this image as we need the exact requested format.
              image_id = {};
@@ -2910,7 +3095,7 @@ index 0d6ccb3..829f5f3 100644
              // The image was clearly picked up wrong.
              FreeImage(image_id);
              image_id = {};
-@@ -916,7 +920,7 @@ ImageId TextureCache::FindTextureImage(const AmdGpu::Image& sharp,
+@@ -916,7 +922,7 @@ ImageId TextureCache::FindTextureImage(const AmdGpu::Image& sharp,
          image.info.guest_size == info.guest_size && image.info.size == info.size &&
          IsVulkanFormatCompatible(image.info.pixel_format, info.pixel_format) &&
          IsViewTypeCompatible(info.type, image.info.type) &&
@@ -2919,6 +3104,26 @@ index 0d6ccb3..829f5f3 100644
          found.sharp = words;
          found.use = use;
          found.registrations = registrations;
+@@ -927,8 +933,18 @@ ImageId TextureCache::FindTextureImage(const AmdGpu::Image& sharp,
+ }
+ 
+ ImageId TextureCache::FindImageFromRange(VAddr address, size_t size, bool ensure_valid) {
++    const Vulkan::FrameStats::CallTimer timer{Vulkan::FrameStats::Call::ImageRangeLookup};
++    if (size == 0) {
++        return {};
++    }
++    // Only exact-start images qualify below. Every such image is registered on
++    // the address's first page, in the same order as a full-range search.
++    // Keep the original traversal for overflowing ranges.
++    const size_t probe_size = Core::Vr::htl_exact_image_lookup.load(std::memory_order_relaxed) &&
++                                      size <= std::numeric_limits<VAddr>::max() - address
++                                  ? 1 : size;
+     ImageIds image_ids;
+-    ForEachImageInRegion(address, size, [&](ImageId image_id, Image& image) {
++    ForEachImageInRegion(address, probe_size, [&](ImageId image_id, Image& image) {
+         if (image.info.guest_address != address) {
+             return;
+         }
 diff --git a/shadps4-arm64-main/src/video_core/texture_cache/types.h b/shadps4-arm64-main/src/video_core/texture_cache/types.h
 index 097fdcb..98367bc 100644
 --- a/shadps4-arm64-main/src/video_core/texture_cache/types.h
