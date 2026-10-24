@@ -1,0 +1,13 @@
+# Intermittent station geometry report
+
+The user reports distant wall geometry appearing over foreground objects and, at worst, large dark artifacts after leaving the train, turning right, and walking alongside it to the far end of the platform. This remains unresolved. Successful train traversal and clean sampled station views do not establish rendering correctness throughout the level.
+
+October 24 reproduction attempt used the installed build 42 with native clipping, broad GPU barriers, the original frame limiter, and no private diagnostic override files. The automatic subway replay reached the platform. Inspection then turned right to approximately 90 degrees world heading, followed the train, moved onto the platform side of a railing that blocked the initial narrow line, and proceeded to the far wall. The final position was about 22 metres along the platform from the exit. Views facing the far wall, across the hall, and back down the platform were inspected. The reported large dark artifacts were not conclusively reproduced. No renderer fix was applied. The emulator was closed after inspection.
+
+The private run `HTL-Development/performance-runs/station-wall-route` contains the inputs, emulator hash, route events and inspection logs. The recorded extension includes the railing correction and camera turns. It is an investigative route, not a newly validated unattended benchmark. Another private run, `station-depth-baseline`, contains the earlier walk that drifted toward the freestanding board and benches.
+
+During the preceding October 23 investigation, a close opaque plane was identified as a freestanding board by viewing its edge/frame. Per-draw GPU waiting did not alter that board view, but this was not the reported defect and therefore does not rule out synchronization problems in the actual failing scene. That diagnostic was removed.
+
+The pre-reboot log also recorded broad barrier mode 0. Windows application events confirmed several NVIDIA Overlay crashes and failures involving Snipping Tool, ChatGPT, Sunshine and a Windows service. The queried records did not establish a display-driver reset or a common cause. Do not infer GPU hardware failure from these application events. No driver installation or Windows setting changes were made.
+
+Next isolation requires a live failing view: keep camera and position fixed, compare stronger synchronization and buffer lifetime diagnostics there, then inspect depth state and the offending draw. Capture can change scheduling; a clean captured frame alone is insufficient evidence of a fix. Preserve the existing conservative configuration until a change is verified in the failing view and on the subway route.
