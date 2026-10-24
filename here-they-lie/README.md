@@ -2,9 +2,11 @@
 
 Development tools, reproducible build instructions and diagnostic experiments for running a personally supplied copy of Here They Lie through AstroQuest/shadPS4, ultimately on a Quest 2 via Virtual Desktop.
 
-**Status:** the rebuilt emulator has reached the subway with coherent stereo, corresponding doors in both eyes, and working simulated head rotation and movement. Packed-eye sampling fixes the four-view duplication; native clipping fixes the reproduced NVIDIA rendering overlays. A fresh control run reproduced the defect when that clipping change was disabled. Actual Quest output has not been validated. See [overnight findings](docs/OVERNIGHT-RENDERING.md) for limits and ongoing audio work.
+**Status (October 24):** the usual local launchers now use the isolated official shadPS4 0.20-based candidate. Three consecutive warm-cache New Game-to-platform routes passed, with clear checked views and mostly 60 FPS car sections. Loading/arrival dips and a presentation-validation warning remain; physical Quest playback is unverified. See the [measured report](docs/COMPREHENSIVE-RUN-2026-10-24.md) and [current build instructions](INTEGRATION-020.md).
 
-## Build on this Windows computer
+## Current and earlier build workflows
+
+Use `scripts/Build-Integration020.ps1` and `upstream-020.lock.json` for the current candidate. The steps below preserve the earlier AstroQuest-based build workflow for comparison. Normal launchers select the tested isolated profile; the old executable/profile remain available.
 
 PowerShell scripts default to portable tools in `Documents/Codex/DevTools/htl`, source in `Documents/Codex/HTL-Development/AstroQuest`, and a separate build in `Documents/Codex/HTL-Development/build/win-x64`.
 
@@ -27,7 +29,7 @@ The original matching source recognized the social-screen port but skipped prese
 
 The TV preview window is off by default. Add `--tv-preview` to the source launcher to enable it. Current transition-flicker isolation and its validation limits are recorded in `docs/TRANSITION-RENDERING.md`; `scripts/Test-TextureExtent.ps1` runs the mip/layer containment regression checks.
 
-Goal: one TV/social window (identify actual game output versus a synthetic crop), plus one window showing the two headset eyes. Preserve Q/E snap turning and WASD. The flat `-nohmd` mode is a reference, not evidence that a separate TV output already works.
+Goal: one TV/social window (identify actual game output versus a synthetic crop), plus one window showing the two headset eyes. Preserve WASD/Q/E controls, smooth turning and the no-vignette variant. The flat `-nohmd` mode is a reference, not evidence that a separate TV output already works.
 
 ## Boundaries and provenance
 

@@ -115,7 +115,7 @@ def main() -> int:
                    SHADPS4_HTL_TOUCH_CONTROLS="1",
                    SHADPS4_HTL_AUTO_CALIBRATE="1" if args.mode == "quest" else "0",
                    SHADPS4_HTL_THEATRE="1" if args.mode == "quest" else "0",
-                   SHADPS4_HTL_XR_FLIP_Y="1" if args.mode == "quest" else "0",
+                   SHADPS4_HTL_XR_FLIP_Y="0",
                    SHADPS4_HTL_FRAME_SYNC="1" if args.renderer_sync == "frame" else "0", SHADPS4_HTL_DRAW_SYNC="0",
                    SHADPS4_HTL_OCCLUSION="1" if args.real_occlusion else "0",
                    SHADPS4_HTL_PASS_DEPENDENCY="1" if args.renderer_sync in ("pass", "broad", "frame") else "0",

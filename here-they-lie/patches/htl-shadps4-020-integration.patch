@@ -29523,7 +29523,7 @@ index 51a9d88..5b99e73 100644
  
  ImageInfo::ImageInfo(const AmdGpu::Image& sharp, const Shader::ImageResource& desc) noexcept {
 diff --git a/src/video_core/texture_cache/texture_cache.cpp b/src/video_core/texture_cache/texture_cache.cpp
-index 1e7a23d..90dd01d 100644
+index 1e7a23d..4c7d006 100644
 --- a/src/video_core/texture_cache/texture_cache.cpp
 +++ b/src/video_core/texture_cache/texture_cache.cpp
 @@ -1,6 +1,7 @@
@@ -29534,14 +29534,16 @@ index 1e7a23d..90dd01d 100644
  #include <limits>
  #include <xxhash.h>
  
-@@ -26,11 +27,32 @@ static constexpr u32 MAX_IMAGES = std::numeric_limits<u16>::max();
+@@ -26,11 +27,34 @@ static constexpr u32 MAX_IMAGES = std::numeric_limits<u16>::max();
  static constexpr u32 MAX_IMAGE_VIEWS = std::numeric_limits<u16>::max();
  static constexpr u32 MAX_SAMPLERS = std::numeric_limits<u16>::max();
  
 +static u64 HashBackingMemory(VAddr virtual_addr, u64 size) {
 +    static constexpr std::array<u8, Core::GUEST_PAGE_SIZE> zeros{};
-+    static const std::unique_ptr<XXH3_state_t, decltype(&XXH3_freeState)> state{XXH3_createState(),
-+                                                                                XXH3_freeState};
++    // CPU page faults and the GPU collector can hash different images concurrently.
++    // Each thread needs its own mutable streaming-hash context.
++    static thread_local const std::unique_ptr<XXH3_state_t, decltype(&XXH3_freeState)> state{
++        XXH3_createState(), XXH3_freeState};
 +    const auto& backing_pages = Core::Memory::Instance()->GetAddressSpace().BackingPages();
 +    XXH3_64bits_reset(state.get());
 +    while (size) {
@@ -29569,7 +29571,7 @@ index 1e7a23d..90dd01d 100644
        slot_image_views{MAX_IMAGE_VIEWS}, slot_samplers{MAX_SAMPLERS},
        blit_helper{instance, scheduler},
        tile_manager{instance, scheduler, runtime, buffer_cache.GetStreamBuffer()},
-@@ -73,58 +95,85 @@ TextureCache::~TextureCache() = default;
+@@ -73,58 +97,85 @@ TextureCache::~TextureCache() = default;
  void TextureCache::ProcessDownloadImages() {
      std::unique_lock lk{download_images_mutex};
      for (const ImageId image_id : download_images) {
@@ -29687,7 +29689,7 @@ index 1e7a23d..90dd01d 100644
      }
      image.flags |= ImageFlagBits::MaybeCpuDirty;
      UntrackImage(image_id);
-@@ -180,6 +229,16 @@ void TextureCache::InvalidateMemoryFromGPU(VAddr address, size_t max_size) {
+@@ -180,6 +231,16 @@ void TextureCache::InvalidateMemoryFromGPU(VAddr address, size_t max_size) {
      });
  }
  
@@ -29704,7 +29706,7 @@ index 1e7a23d..90dd01d 100644
  void TextureCache::UnmapMemory(VAddr cpu_addr, size_t size) {
      SmallVector<ImageId, 16> deleted_images;
      ForEachImageInRegion(cpu_addr, size, [&](ImageId id, Image&) { deleted_images.push_back(id); });
-@@ -482,12 +541,19 @@ std::tuple<ImageId, int, int> TextureCache::ResolveOverlap(const ImageInfo& imag
+@@ -482,12 +543,19 @@ std::tuple<ImageId, int, int> TextureCache::ResolveOverlap(const ImageInfo& imag
                      return {merged_image_id, -1, -1};
                  }
  
@@ -29729,7 +29731,7 @@ index 1e7a23d..90dd01d 100644
              }
          }
      }
-@@ -502,20 +568,33 @@ ImageId TextureCache::ExpandImage(const ImageInfo& info, ImageId image_id) {
+@@ -502,20 +570,33 @@ ImageId TextureCache::ExpandImage(const ImageInfo& info, ImageId image_id) {
      auto& src_image = slot_images[image_id];
      auto& new_image = slot_images[new_image_id];
  
@@ -29765,7 +29767,7 @@ index 1e7a23d..90dd01d 100644
      ASSERT(info.guest_address != 0);
  
      SmallVector<ImageId, 8> image_ids;
-@@ -601,7 +680,7 @@ ImageId TextureCache::FindImage(ImageDesc& desc, bool exact_fmt) {
+@@ -601,7 +682,7 @@ ImageId TextureCache::FindImage(ImageDesc& desc, bool exact_fmt) {
  ImageId TextureCache::FindImageFromRange(VAddr address, size_t size, bool ensure_valid) {
      SmallVector<ImageId, 4> image_ids;
      ForEachImageWithAddress(address, [&](ImageId image_id, Image& image) {
@@ -29774,7 +29776,7 @@ index 1e7a23d..90dd01d 100644
              return;
          }
          image_ids.push_back(image_id);
-@@ -609,12 +688,15 @@ ImageId TextureCache::FindImageFromRange(VAddr address, size_t size, bool ensure
+@@ -609,12 +690,15 @@ ImageId TextureCache::FindImageFromRange(VAddr address, size_t size, bool ensure
      if (image_ids.size() == 1) {
          // Sometimes image size might not exactly match with requested buffer size
          // If we only found 1 candidate image use it without too many questions.
@@ -29790,7 +29792,7 @@ index 1e7a23d..90dd01d 100644
                  return image_ids[i];
              }
          }
-@@ -734,7 +816,7 @@ ImageView& TextureCache::FindDepthTarget(ImageId image_id, const ImageDesc& desc
+@@ -734,7 +818,7 @@ ImageView& TextureCache::FindDepthTarget(ImageId image_id, const ImageDesc& desc
  }
  
  void TextureCache::AssociateStencil(ImageId depth_id, const ImageInfo& depth_info) {
@@ -29799,7 +29801,7 @@ index 1e7a23d..90dd01d 100644
          return;
      }
      ImageId stencil_id{};
-@@ -782,11 +864,11 @@ void TextureCache::RefreshImage(Image& image) {
+@@ -782,11 +866,11 @@ void TextureCache::RefreshImage(Image& image) {
          const u32 s_h = image.info.props.is_block ? Common::DivCeil(h, 4u) : h;
          const u32 size = s_w * s_h * (image.info.num_bits / 8);
          const u64 hash = XXH3_64bits(addr, size);
@@ -29813,7 +29815,7 @@ index 1e7a23d..90dd01d 100644
      }
  
      const u32 num_layers = image.info.resources.layers;
-@@ -858,7 +940,8 @@ void TextureCache::RegisterImage(ImageId image_id) {
+@@ -858,7 +942,8 @@ void TextureCache::RegisterImage(ImageId image_id) {
      ASSERT_MSG(False(image.flags & ImageFlagBits::Registered),
                 "Trying to register an already registered image");
      image.flags |= ImageFlagBits::Registered;
@@ -29823,7 +29825,7 @@ index 1e7a23d..90dd01d 100644
      image_lru_cache.Insert(image, gc_tick);
      const auto& info = image.info;
      ASSERT_MSG((info.guest_address & 0xff) == 0, "Trying to register an unaligned image");
-@@ -876,8 +959,9 @@ void TextureCache::UnregisterImage(ImageId image_id) {
+@@ -876,8 +961,9 @@ void TextureCache::UnregisterImage(ImageId image_id) {
      ASSERT_MSG(True(image.flags & ImageFlagBits::Registered),
                 "Trying to unregister an already unregistered image");
      image.flags &= ~ImageFlagBits::Registered;
@@ -29834,7 +29836,7 @@ index 1e7a23d..90dd01d 100644
      ForEachPage(image.info.guest_address, image.info.guest_size, [this, image_id](u64 page) {
          const auto page_it = page_table.find(page);
          ASSERT_MSG(page_it, "Unregistering unregistered page={:#x}", page << Traits::PAGE_BITS);
-@@ -902,18 +986,22 @@ void TextureCache::TrackImage(ImageId image_id) {
+@@ -902,18 +988,22 @@ void TextureCache::TrackImage(ImageId image_id) {
  
      std::scoped_lock lk{image.mutex};
      if (image.IsUntracked()) {
@@ -29861,7 +29863,7 @@ index 1e7a23d..90dd01d 100644
  }
  
  void TextureCache::UntrackImage(ImageId image_id) {
-@@ -924,7 +1012,7 @@ void TextureCache::UntrackImage(ImageId image_id) {
+@@ -924,7 +1014,7 @@ void TextureCache::UntrackImage(ImageId image_id) {
      const auto addr = image.track_addr;
      const auto size = image.track_addr_end - image.track_addr;
      if (size != 0) {
@@ -29870,7 +29872,7 @@ index 1e7a23d..90dd01d 100644
      }
      image.track_addr = 0;
      image.track_addr_end = 0;
-@@ -936,9 +1024,10 @@ void TextureCache::UntrackImageHead(ImageId image_id) {
+@@ -936,9 +1026,10 @@ void TextureCache::UntrackImageHead(ImageId image_id) {
      if (image.IsUntracked() || image_begin < image.track_addr) {
          return;
      }
@@ -29883,7 +29885,7 @@ index 1e7a23d..90dd01d 100644
  
      image.track_addr = addr;
      if (image.track_addr == image.track_addr_end) {
-@@ -956,8 +1045,9 @@ void TextureCache::UntrackImageTail(ImageId image_id) {
+@@ -956,8 +1047,9 @@ void TextureCache::UntrackImageTail(ImageId image_id) {
          return;
      }
      ASSERT(image.track_addr_end != 0);
@@ -29894,7 +29896,7 @@ index 1e7a23d..90dd01d 100644
      image.track_addr_end = addr;
      if (image.track_addr == image.track_addr_end) {
          // This image spans only 2 pages and both are modified,
-@@ -965,7 +1055,24 @@ void TextureCache::UntrackImageTail(ImageId image_id) {
+@@ -965,7 +1057,24 @@ void TextureCache::UntrackImageTail(ImageId image_id) {
          // Cehck its hash later.
          MarkAsMaybeDirty(image_id, image);
      }
@@ -29920,7 +29922,7 @@ index 1e7a23d..90dd01d 100644
  }
  
  void TextureCache::GarbageCollectImages() {
-@@ -979,6 +1086,8 @@ void TextureCache::GarbageCollectImages() {
+@@ -979,6 +1088,8 @@ void TextureCache::GarbageCollectImages() {
      bool aggresive = false;
      u64 ticks_to_destroy = 0;
      size_t num_deletions = 0;
@@ -29929,7 +29931,7 @@ index 1e7a23d..90dd01d 100644
  
      const auto configure = [&](bool allow_aggressive) {
          pressured = total_used_memory >= pressure_gc_memory;
-@@ -991,21 +1100,27 @@ void TextureCache::GarbageCollectImages() {
+@@ -991,21 +1102,31 @@ void TextureCache::GarbageCollectImages() {
          if (num_deletions == 0) {
              return true;
          }
@@ -29941,6 +29943,8 @@ index 1e7a23d..90dd01d 100644
 -            return false;
 -        }
 -        if (download && !pressured) {
++        // Like FreeImage, serialize flag changes with CPU fault invalidation.
++        std::unique_lock image_lock{image.mutex};
 +        // An edge write means the guest reused the memory, so the image is freed without download.
 +        MarkDirtyIfEdgesModified(image);
 +        const bool download = image.HasGpuValidData();
@@ -29953,6 +29957,7 @@ index 1e7a23d..90dd01d 100644
 -            DownloadImageMemory(image_id);
 +            UntrackImage(image_id);
 +            UnregisterImage(image_id);
++            image_lock.unlock();
 +            if (True(image.flags & ImageFlagBits::MaybeGpuDirty)) {
 +                buffer_cache.ReadMemory(image.info.guest_address, image.info.guest_size, false,
 +                                        true, true);
@@ -29961,13 +29966,14 @@ index 1e7a23d..90dd01d 100644
 +                download_queue.push_back(image_id);
 +            }
 +        } else {
++            image_lock.unlock();
 +            FreeImage(image_id);
          }
 -        FreeImage(image_id);
          if (total_used_memory < critical_gc_memory) {
              if (aggresive) {
                  num_deletions >>= 2;
-@@ -1029,6 +1144,41 @@ void TextureCache::GarbageCollectImages() {
+@@ -1029,6 +1150,41 @@ void TextureCache::GarbageCollectImages() {
          configure(true);
          image_lru_cache.ForEachItemBelow(gc_tick - ticks_to_destroy, clean_up);
      }
@@ -30009,7 +30015,7 @@ index 1e7a23d..90dd01d 100644
  }
  
  void TextureCache::GarbageCollectSamplers() {
-@@ -1077,6 +1227,14 @@ void TextureCache::RunGarbageCollector() {
+@@ -1077,6 +1233,14 @@ void TextureCache::RunGarbageCollector() {
      ++gc_tick;
  }
  
@@ -30025,7 +30031,7 @@ index 1e7a23d..90dd01d 100644
      Image& image = slot_images[image_id];
      ASSERT_MSG(image.IsUntracked(), "Image was not untracked");
 diff --git a/src/video_core/texture_cache/texture_cache.h b/src/video_core/texture_cache/texture_cache.h
-index 9f101b8..f17df1b 100644
+index 9f101b8..3b56bba 100644
 --- a/src/video_core/texture_cache/texture_cache.h
 +++ b/src/video_core/texture_cache/texture_cache.h
 @@ -71,6 +71,7 @@ class TextureCache {
@@ -30089,7 +30095,7 @@ index 9f101b8..f17df1b 100644
      void MarkAsMaybeDirty(ImageId image_id, Image& image);
  
      void RegisterMeta(VAddr address, MetaDataInfo info);
-@@ -368,9 +383,7 @@ private:
+@@ -368,17 +383,17 @@ private:
      void DeleteImage(ImageId image_id);
  
      /// Touch the image in the LRU cache.
@@ -30100,7 +30106,18 @@ index 9f101b8..f17df1b 100644
  
      /// Removes image from the cache and schedules it for deletion.
      void FreeImage(ImageId image_id) {
-@@ -391,7 +404,7 @@ private:
+         {
+             std::scoped_lock lk{slot_images[image_id].mutex};
+             UntrackImage(image_id);
++            // CPU fault invalidation updates the same flag word under this mutex.
++            // Keep Registered's removal in that critical section as well.
++            UnregisterImage(image_id);
+         }
+-        UnregisterImage(image_id);
+         DeleteImage(image_id);
+     }
+ 
+@@ -391,7 +406,7 @@ private:
      Vulkan::Runtime& runtime;
      AmdGpu::Liverpool* liverpool;
      BufferCache& buffer_cache;
@@ -30109,7 +30126,7 @@ index 9f101b8..f17df1b 100644
      PageTable page_table;
      Common::SlotVector<Image> slot_images;
      Common::SlotVector<ImageView> slot_image_views;
-@@ -415,5 +428,6 @@ private:
+@@ -415,5 +430,6 @@ private:
      std::mutex download_images_mutex;
      absl::flat_hash_map<VAddr, MetaDataInfo> surface_metas;
  };

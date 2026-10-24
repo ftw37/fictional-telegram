@@ -1,0 +1,2 @@
+# A unified diff's context prefix is meaningful on an otherwise blank source line.
+*.patch whitespace=-blank-at-eol

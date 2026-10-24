@@ -2,7 +2,7 @@
   "repository": "https://github.com/shadps4-emu/shadPS4.git",
   "tag": "v.0.20.0",
   "commit": "529ceb32f5546b820588f194b903cc39d08015fe",
-  "status": "experimental; not promoted to the normal launcher",
+  "status": "locally tested Windows candidate selected by normal launchers; physical headset verification pending",
   "vr_source_repository": "https://github.com/bigmak94/AstroQuest.git",
   "vr_source_commit": "57650d2c5aeb09dda2689a2baad23396a9900c49",
   "openxr_vendored_path": "shadps4-arm64-main/externals/openxr-sdk",
