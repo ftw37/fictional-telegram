@@ -1,5 +1,7 @@
 # shadPS4 0.20 Windows candidate
 
+**October 26 update:** this page records the October 24 graphics baseline. Its statements that physical Quest playback is unverified are historical. Physical tracking/gameplay and corrected audio have since been user-tested; startup orientation and a later crash remain open. See [current status](docs/PROJECT-STATUS-2026-10-26.md) and [new-PC setup](docs/GETTING-STARTED.md). The original hash below identifies the older graphics baseline, not the current audio or Quest candidate.
+
 The usual local launchers now select the isolated 0.20 candidate. Three consecutive normal warm-cache routes reached the platform in 113.0, 114.4 and 119.6 seconds; checked views were clear. Most car/scare/fire intervals were near 60 FPS, but loading/entry and station arrival still dipped below it. Physical Quest playback remains unverified, and a presentation-validation warning remains unresolved. See the [measured run report](docs/COMPREHENSIVE-RUN-2026-10-24.md).
 
 ## Source and build

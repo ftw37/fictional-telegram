@@ -2,8 +2,9 @@
 
 Development tools, reproducible build instructions and diagnostic experiments for running a personally supplied copy of Here They Lie through AstroQuest/shadPS4, ultimately on a Quest 2 via Virtual Desktop.
 
-**Status (October 24):** the usual local launchers now use the isolated official shadPS4 0.20-based candidate. Three consecutive warm-cache New Game-to-platform routes passed, with clear checked views and mostly 60 FPS car sections. Loading/arrival dips and a presentation-validation warning remain; physical Quest playback is unverified. See the [measured report](docs/COMPREHENSIVE-RUN-2026-10-24.md) and [current build instructions](INTEGRATION-020.md).
+**Status (October 26):** physical Quest 2 playback through Virtual Desktop/SteamVR has now been tested. The user played through several checkpoints with working head tracking and confirmed clear speech, footsteps and ambient audio. Desktop opening-to-platform replay passed repeatedly. Startup splash/calibration orientation and a later guest render-thread crash remain unresolved; the newest startup-pose candidate is built but has not been headset-tested. This is an experimental compatibility project, not a finished standalone Quest port.
 
+Start with [setup on another Windows PC](docs/GETTING-STARTED.md), then read [current progress and known issues](docs/PROJECT-STATUS-2026-10-26.md). The historical [October 24 measurements](docs/COMPREHENSIVE-RUN-2026-10-24.md) predate physical testing.
 ## Audio update (October 25)
 
 Corrected linear mixer/object gains that had been interpreted as decibels, promoting silence and quiet fades to nearly full volume. The current candidate adds linked-channel output protection, preserves spatial direction and passed three opening-to-platform routes. Recorded dialogue recognition improved substantially. Car sections remain around 60 FPS; existing station/loading variability remains. The usual preview and SteamVR launchers use the fix, with a 20% startup volume. See [audio findings, checks and limits](docs/AUDIO-FIX-2026-10-25.md).

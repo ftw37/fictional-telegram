@@ -1,0 +1,271 @@
+diff --git a/src/core/signals.cpp b/src/core/signals.cpp
+index b4e4afc..52941f8 100644
+--- a/src/core/signals.cpp
++++ b/src/core/signals.cpp
+@@ -153,6 +153,10 @@ static LONG WINAPI SignalHandler(EXCEPTION_POINTERS* pExp) noexcept {
+                          reinterpret_cast<u64>(address) - reinterpret_cast<u64>(fault_module));
+         }
+         if (code == EXCEPTION_ACCESS_VIOLATION) {
++            const auto* c = pExp->ContextRecord;
++            LOG_CRITICAL(Debug, "Fault registers RIP={:#x} RSP={:#x} RAX={:#x} RBX={:#x} RCX={:#x} RDX={:#x} RSI={:#x} RDI={:#x} R8={:#x} R9={:#x} R10={:#x} R11={:#x} R12={:#x} R13={:#x} R14={:#x} R15={:#x}",
++                         c->Rip, c->Rsp, c->Rax, c->Rbx, c->Rcx, c->Rdx, c->Rsi, c->Rdi,
++                         c->R8, c->R9, c->R10, c->R11, c->R12, c->R13, c->R14, c->R15);
+             LOG_CRITICAL(Debug, "Fault access {} address {:#x}",
+                          pExp->ExceptionRecord->ExceptionInformation[0],
+                          pExp->ExceptionRecord->ExceptionInformation[1]);
+diff --git a/src/core/vr/openxr_host.cpp b/src/core/vr/openxr_host.cpp
+index 11fa265..fac9a35 100644
+--- a/src/core/vr/openxr_host.cpp
++++ b/src/core/vr/openxr_host.cpp
+@@ -519,6 +519,8 @@ struct OpenXrHost::Impl {
+     u32 late_frames{};
+     u32 late_waits_missed{};
+     u32 head_tracked_frames{};
++    bool startup_head_ready{};
++    u32 startup_upright_frames{};
+     u32 palm_samples{};
+     float palm_distance{};
+     u32 pad_samples{};
+@@ -1865,7 +1867,7 @@ struct OpenXrHost::Impl {
+                     shown_height = slot.height;
+                     have_frame = true;
+                     ++copied_frames;
+-                    if (IsTheatre(shown.presentation_state) &&
++                    if (startup_head_ready && IsTheatre(shown.presentation_state) &&
+                         theatre_anchor_state != shown.presentation_state) {
+                         const auto forward = Rotate(head_pose.orientation, {0, 0, -1});
+                         const float yaw = std::atan2(-forward.x, -forward.z);
+@@ -1895,13 +1897,24 @@ struct OpenXrHost::Impl {
+                 }
+             }
+ 
++            if (startup_head_ready && have_frame && IsTheatre(shown.presentation_state) &&
++                theatre_anchor_state != shown.presentation_state) {
++                const auto forward = Rotate(head_pose.orientation, {0, 0, -1});
++                const float yaw = std::atan2(-forward.x, -forward.z);
++                theatre_pose.orientation = {0, std::sin(yaw / 2), 0, std::cos(yaw / 2)};
++                const auto offset = Rotate(theatre_pose.orientation, {0, 0, -1.524f});
++                theatre_pose.position = {head_pose.position.x + offset.x, head_pose.position.y,
++                                         head_pose.position.z + offset.z};
++                theatre_anchor_state = shown.presentation_state;
++            }
++
+             XrCompositionLayerProjectionView views[2]{{XR_TYPE_COMPOSITION_LAYER_PROJECTION_VIEW},
+                                                       {XR_TYPE_COMPOSITION_LAYER_PROJECTION_VIEW}};
+             XrCompositionLayerProjection projection{XR_TYPE_COMPOSITION_LAYER_PROJECTION};
+             XrCompositionLayerQuad theatre{XR_TYPE_COMPOSITION_LAYER_QUAD};
+             const XrCompositionLayerBaseHeader* layers[1]{};
+             uint32_t layer_count = 0;
+-            if (frame_state.shouldRender == XR_TRUE && have_frame &&
++            if (frame_state.shouldRender == XR_TRUE && have_frame && startup_head_ready &&
+                 swapchain != XR_NULL_HANDLE &&
+                 (!TheatreEnabled() || shown.presentation_state == PresentationState())) {
+                 if (IsTheatre(shown.presentation_state)) {
+@@ -1979,7 +1992,24 @@ struct OpenXrHost::Impl {
+         XrSpaceVelocity velocity{XR_TYPE_SPACE_VELOCITY};
+         XrSpaceLocation location{XR_TYPE_SPACE_LOCATION};
+         location.next = &velocity;
+-        if (XR_SUCCEEDED(xrLocateSpace(view_space, local_space, time, &location)) &&
++        const bool located = XR_SUCCEEDED(xrLocateSpace(view_space, local_space, time, &location));
++        const auto tracked_bits = XR_SPACE_LOCATION_ORIENTATION_TRACKED_BIT |
++                                  XR_SPACE_LOCATION_POSITION_TRACKED_BIT;
++        if (!startup_head_ready) {
++            // SteamVR can supply a valid but untracked, rolled pose while the headset wakes.
++            // Never let it establish the guest's initial seat. This gate applies only once;
++            // normal gameplay may tilt/invert freely after startup.
++            const auto up = Rotate(location.pose.orientation, {0, 1, 0});
++            const bool ready = located && (location.locationFlags & tracked_bits) == tracked_bits &&
++                               std::isfinite(up.y) && up.y > 0.25f;
++            startup_upright_frames = ready ? startup_upright_frames + 1 : 0;
++            if (startup_upright_frames >= 8) {
++                startup_head_ready = true;
++                theatre_anchor_state = ~u64{0};
++                LOG_INFO(Core, "Startup head accepted after eight tracked upright poses");
++            }
++        }
++        if (startup_head_ready && located &&
+             (location.locationFlags & XR_SPACE_LOCATION_ORIENTATION_VALID_BIT) != 0 &&
+             (location.locationFlags & XR_SPACE_LOCATION_POSITION_VALID_BIT) != 0) {
+             DeviceState state;
+@@ -1998,9 +2028,9 @@ struct OpenXrHost::Impl {
+             }
+             state.tracked = true;
+             if (head_tracked_frames == 0) {
+-                LOG_INFO(Core, "Initial OpenXR head orientation: ({:.4f}, {:.4f}, {:.4f}, {:.4f})",
++                LOG_INFO(Core, "Initial OpenXR head orientation: ({:.4f}, {:.4f}, {:.4f}, {:.4f}), location flags={:#x}",
+                          state.pose.orientation.x, state.pose.orientation.y,
+-                         state.pose.orientation.z, state.pose.orientation.w);
++                         state.pose.orientation.z, state.pose.orientation.w, u64(location.locationFlags));
+             }
+             // (SHADPS4_XR_HEAD=0, for tests: the head is somebody else's to move, a script's.)
+             if (feed_head) {
+diff --git a/src/video_core/amdgpu/command_copy.h b/src/video_core/amdgpu/command_copy.h
+new file mode 100644
+index 0000000..029f001
+--- /dev/null
++++ b/src/video_core/amdgpu/command_copy.h
+@@ -0,0 +1,29 @@
++// SPDX-License-Identifier: GPL-2.0-or-later
++#pragma once
++#include <algorithm>
++#include <atomic>
++#include <cstring>
++#include <memory>
++#include <span>
++#include <vector>
++#include "common/types.h"
++namespace AmdGpu {
++struct CommandCopy {
++    std::span<const u32> words;
++    std::unique_ptr<std::vector<u32>> owner;
++};
++// Never grow an arena whose data may be referenced by suspended command parsers.
++inline CommandCopy CopyCommands(std::span<const u32> source, std::vector<u32>& arena,
++                                std::atomic<u32>& offset) {
++    const size_t used = offset.load();
++    if (used > arena.capacity() || source.size() > arena.capacity() - used) {
++        auto owner = std::make_unique<std::vector<u32>>(source.begin(),source.end());
++        auto words = std::span<const u32>{*owner};
++        return {words,std::move(owner)};
++    }
++    arena.resize(std::max(arena.size(),used+source.size()));
++    if (!source.empty()) std::memcpy(arena.data()+used,source.data(),source.size_bytes());
++    offset = static_cast<u32>(used+source.size());
++    return {std::span<const u32>{arena.data()+used,source.size()}, {}};
++}
++}
+diff --git a/src/video_core/amdgpu/liverpool.cpp b/src/video_core/amdgpu/liverpool.cpp
+index bf0e52a..511635d 100644
+--- a/src/video_core/amdgpu/liverpool.cpp
++++ b/src/video_core/amdgpu/liverpool.cpp
+@@ -1,3 +1,4 @@
++#include "video_core/amdgpu/command_copy.h"
+ // SPDX-FileCopyrightText: Copyright 2024-2026 shadPS4 Emulator Project
+ // SPDX-License-Identifier: GPL-2.0-or-later
+ 
+@@ -185,7 +186,9 @@ void Liverpool::Process(std::stop_token stoken) {
+     }
+ }
+ 
+-Liverpool::Task Liverpool::ProcessCeUpdate(std::span<const u32> ccb) {
++Liverpool::Task Liverpool::ProcessCeUpdate(std::span<const u32> ccb,
++    std::unique_ptr<std::vector<u32>> keepalive) {
++    (void)keepalive; // The coroutine frame owns overflow storage until its commands finish.
+     FIBER_ENTER(ccb_task_name);
+ 
+     while (!ccb.empty()) {
+@@ -255,7 +258,9 @@ Liverpool::Task Liverpool::ProcessCeUpdate(std::span<const u32> ccb) {
+     FIBER_EXIT;
+ }
+ 
+-Liverpool::Task Liverpool::ProcessGraphics(std::span<const u32> dcb) {
++Liverpool::Task Liverpool::ProcessGraphics(std::span<const u32> dcb,
++    std::unique_ptr<std::vector<u32>> keepalive) {
++    (void)keepalive; // The coroutine frame owns overflow storage until its commands finish.
+     FIBER_ENTER(dcb_task_name);
+ 
+     const auto base_addr = reinterpret_cast<uintptr_t>(dcb.data());
+@@ -1190,50 +1195,41 @@ Liverpool::Task Liverpool::ProcessCompute(std::span<const u32> acb, u32 vqid) {
+ }
+ 
+ Liverpool::CmdBuffer Liverpool::CopyCmdBuffers(std::span<const u32> dcb, std::span<const u32> ccb) {
++    // Serialize reservations with SubmitDone and other submitting threads. Existing arena
++    // storage must never be reallocated while a suspended parser holds a span into it.
++    std::scoped_lock lock{submit_mutex};
+     auto& queue = mapped_queues[GfxQueueId];
+-    ASSERT_MSG(queue.dcb_buffer.capacity() >= queue.dcb_buffer_offset + dcb.size(),
+-               "dcb copy buffer out of reserved space");
+-    ASSERT_MSG(queue.ccb_buffer.capacity() >= queue.ccb_buffer_offset + ccb.size(),
+-               "ccb copy buffer out of reserved space");
+-
+-    queue.dcb_buffer.resize(
+-        std::max(queue.dcb_buffer.size(), queue.dcb_buffer_offset + dcb.size()));
+-    queue.ccb_buffer.resize(
+-        std::max(queue.ccb_buffer.size(), queue.ccb_buffer_offset + ccb.size()));
+-
+-    const u32 prev_dcb_buffer_offset = queue.dcb_buffer_offset;
+-    const u32 prev_ccb_buffer_offset = queue.ccb_buffer_offset;
+-    if (!dcb.empty()) {
+-        std::memcpy(queue.dcb_buffer.data() + queue.dcb_buffer_offset, dcb.data(),
+-                    dcb.size_bytes());
+-        queue.dcb_buffer_offset += dcb.size();
+-        dcb = std::span<const u32>{queue.dcb_buffer.begin() + prev_dcb_buffer_offset,
+-                                   queue.dcb_buffer.begin() + queue.dcb_buffer_offset};
++    CmdBuffer result;
++    auto dcb_copy = CopyCommands(dcb,queue.dcb_buffer,queue.dcb_buffer_offset);
++    auto ccb_copy = CopyCommands(ccb,queue.ccb_buffer,queue.ccb_buffer_offset);
++    if (dcb_copy.owner || ccb_copy.owner) {
++        static std::atomic<u32> reports{};
++        if (reports.fetch_add(1) < 8) LOG_WARNING(Render,
++            "Command-copy overflow uses owned storage: DCB {} bytes, CCB {} bytes",
++            dcb_copy.owner ? dcb.size_bytes() : 0, ccb_copy.owner ? ccb.size_bytes() : 0);
+     }
+-
+-    if (!ccb.empty()) {
+-        std::memcpy(queue.ccb_buffer.data() + queue.ccb_buffer_offset, ccb.data(),
+-                    ccb.size_bytes());
+-        queue.ccb_buffer_offset += ccb.size();
+-        ccb = std::span<const u32>{queue.ccb_buffer.begin() + prev_ccb_buffer_offset,
+-                                   queue.ccb_buffer.begin() + queue.ccb_buffer_offset};
+-    }
+-
+-    return std::make_pair(dcb, ccb);
++    result.dcb = dcb_copy.words;
++    result.ccb = ccb_copy.words;
++    result.dcb_owner = std::move(dcb_copy.owner);
++    result.ccb_owner = std::move(ccb_copy.owner);
++    return result;
+ }
+ 
+ void Liverpool::SubmitGfx(std::span<const u32> dcb, std::span<const u32> ccb) {
+     auto& queue = mapped_queues[GfxQueueId];
+ 
++    CmdBuffer copied;
+     if (EmulatorSettings.IsCopyGpuBuffers()) {
+-        std::tie(dcb, ccb) = CopyCmdBuffers(dcb, ccb);
++        copied = CopyCmdBuffers(dcb, ccb);
++        dcb = copied.dcb;
++        ccb = copied.ccb;
+     }
+ 
+-    auto task = ProcessGraphics(dcb);
++    auto task = ProcessGraphics(dcb, std::move(copied.dcb_owner));
+     {
+         std::scoped_lock lock{submit_mutex, queue.m_access};
+         if (!ccb.empty()) {
+-            ce_submits.emplace(ProcessCeUpdate(ccb).handle);
++            ce_submits.emplace(ProcessCeUpdate(ccb, std::move(copied.ccb_owner)).handle);
+             ++num_submits;
+         }
+         queue.submits.emplace(task.handle);
+diff --git a/src/video_core/amdgpu/liverpool.h b/src/video_core/amdgpu/liverpool.h
+index 44993e6..57a0a9f 100644
+--- a/src/video_core/amdgpu/liverpool.h
++++ b/src/video_core/amdgpu/liverpool.h
+@@ -7,6 +7,7 @@
+ #include <coroutine>
+ #include <exception>
+ #include <mutex>
++#include <memory>
+ #include <semaphore>
+ #include <span>
+ #include <thread>
+@@ -184,10 +185,15 @@ private:
+         Handle handle;
+     };
+ 
+-    using CmdBuffer = std::pair<std::span<const u32>, std::span<const u32>>;
++    struct CmdBuffer {
++        std::span<const u32> dcb, ccb;
++        std::unique_ptr<std::vector<u32>> dcb_owner, ccb_owner;
++    };
+     CmdBuffer CopyCmdBuffers(std::span<const u32> dcb, std::span<const u32> ccb);
+-    Task ProcessGraphics(std::span<const u32> dcb);
+-    Task ProcessCeUpdate(std::span<const u32> ccb);
++    Task ProcessGraphics(std::span<const u32> dcb,
++                         std::unique_ptr<std::vector<u32>> keepalive = {});
++    Task ProcessCeUpdate(std::span<const u32> ccb,
++                         std::unique_ptr<std::vector<u32>> keepalive = {});
+     template <bool is_indirect = false>
+     Task ProcessCompute(std::span<const u32> acb, u32 vqid);
+ 
