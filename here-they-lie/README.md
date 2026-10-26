@@ -4,6 +4,10 @@ Development tools, reproducible build instructions and diagnostic experiments fo
 
 **Status (October 24):** the usual local launchers now use the isolated official shadPS4 0.20-based candidate. Three consecutive warm-cache New Game-to-platform routes passed, with clear checked views and mostly 60 FPS car sections. Loading/arrival dips and a presentation-validation warning remain; physical Quest playback is unverified. See the [measured report](docs/COMPREHENSIVE-RUN-2026-10-24.md) and [current build instructions](INTEGRATION-020.md).
 
+## Audio update (October 25)
+
+Corrected linear mixer/object gains that had been interpreted as decibels, promoting silence and quiet fades to nearly full volume. The current candidate adds linked-channel output protection, preserves spatial direction and passed three opening-to-platform routes. Recorded dialogue recognition improved substantially. Car sections remain around 60 FPS; existing station/loading variability remains. The usual preview and SteamVR launchers use the fix, with a 20% startup volume. See [audio findings, checks and limits](docs/AUDIO-FIX-2026-10-25.md).
+
 ## Current and earlier build workflows
 
 Use `scripts/Build-Integration020.ps1` and `upstream-020.lock.json` for the current candidate. The steps below preserve the earlier AstroQuest-based build workflow for comparison. Normal launchers select the tested isolated profile; the old executable/profile remain available.

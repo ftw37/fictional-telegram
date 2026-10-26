@@ -16,6 +16,8 @@ def main():
     p.add_argument('--flashlight',action='store_true',help='Toggle the flashlight after the first-car spawn')
     p.add_argument('--renderer-sync',choices=('broad','upstream','pass','frame'),default='broad')
     p.add_argument('--startup-profile',choices=('legacy','stable020'),default='legacy')
+    p.add_argument('--silent-audio',action='store_true')
+    p.add_argument('--record-audio',type=int,choices=range(1,601),metavar='SECONDS')
     p.add_argument('--profile-render',action='store_true')
     p.add_argument('--profile-cpu',action='store_true')
     p.add_argument('--compare-image-lookup',action='store_true')
@@ -56,6 +58,8 @@ def main():
         '--game',str(Path.home()/'Documents/Codex/HTL-Test/no-vignette-v1/uroot'),
         '--replay-buttons' if a.mode=='quest' else '--replay',str(script),'--frame-stats']+(['--profile-render'] if a.profile_render else [])
         +(['--profile-cpu'] if a.profile_cpu else [])
+        +(['--silent-audio'] if a.silent_audio else [])
+        +(['--record-audio',str(a.record_audio)] if a.record_audio else [])
         +(['--real-occlusion'] if a.real_occlusion else []))
     reader=None
     owns_fastpath_flag=False

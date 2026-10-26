@@ -46,6 +46,12 @@ def main() -> int:
     replay_group.add_argument("--replay", type=Path, help="Optional diagnostic input script, including poses")
     replay_group.add_argument("--replay-buttons", type=Path,
                               help="Replay only controller buttons and sticks; headset poses stay with OpenXR")
+    parser.add_argument("--silent-audio", action="store_true",
+                        help="Silence device output without recording; retain audio processing and pacing")
+    parser.add_argument("--record-audio", type=int, choices=range(1,601), metavar="SECONDS",
+                        help="Record internal audio paths with silent device output, max 600 seconds")
+    parser.add_argument("--audio-balance-test", action="store_true",
+                        help="Enable gain traces using the corrected linear audio levels")
     parser.add_argument("--tv-preview", action="store_true",
                         help="Open the optional TV preview window (off by default)")
     parser.add_argument("--frame-stats", action="store_true",
@@ -102,6 +108,14 @@ def main() -> int:
                         raise RuntimeError("The test emulator is already open. Close it before launching again.")
                 finally:
                     kernel.CloseHandle(handle)
+        # Apply a staged local rebuild only after the active-process check above.
+        pending = runtime / "shadps4-input-polling.pending.exe"
+        if pending.is_file():
+            import shutil
+            backup = runtime / "source-build020-before-input-polling.exe"
+            if not backup.exists():
+                shutil.copy2(exe, backup)
+            pending.replace(exe)
         env = os.environ.copy()
         for key in ("SHADPS4_INPUT_SCRIPT", "SHADPS4_LIVE_INPUT", "SHADPS4_VR_SOCKET",
                     "SHADPS4_HTL_TEST_UNCAP", "SHADPS4_HTL_SLEEP_TRACE",
@@ -111,7 +125,7 @@ def main() -> int:
                     "SHADPS4_NGS2_TRACE", "SHADPS4_NGS2_DUMP", "SHADPS4_AUDIO3D_TRACE",
                     "SHADPS4_AUDIO3D_DUMP", "SHADPS4_HTL_AUDIO_TRACE"):
             env.pop(key, None)
-        env.update(SHADPS4_HTL_COMPAT="1", SHADPS4_HTL_NATIVE_CLIP="1",
+        env.update(SHADPS4_HTL_AUDIO_GUARD="1", SHADPS4_HTL_COMPAT="1", SHADPS4_HTL_NATIVE_CLIP="1",
                    SHADPS4_HTL_TOUCH_CONTROLS="1",
                    SHADPS4_HTL_AUTO_CALIBRATE="1" if args.mode == "quest" else "0",
                    SHADPS4_HTL_THEATRE="1" if args.mode == "quest" else "0",
@@ -121,12 +135,31 @@ def main() -> int:
                    SHADPS4_HTL_PASS_DEPENDENCY="1" if args.renderer_sync in ("pass", "broad", "frame") else "0",
                    SHADPS4_HTL_GPU_BARRIER="1" if args.renderer_sync == "broad" else "0",
                    SHADPS4_HTL_BARRIER_MODE="pipeline" if args.fast_graphics else "broad",
-                   SHADPS4_HTL_FX2="1", SHADPS4_HTL_AUDIO_DB="1",
+                   SHADPS4_HTL_FX2="1", SHADPS4_HTL_AUDIO_DB="0",
                    SHADPS4_OPENXR="1" if args.mode == "quest" else "0",
                    SHADPS4_XR_WAIT="0", SHADPS4_VR_DEMO="0",
                    SHADPS4_VR_DESKTOP_GESTURES="1" if args.mode == "preview" else "0",
                    SHADPS4_VR_DESKTOP_VIEW="stereo", SHADPS4_DBG_EYE_SCAN="0",
                    SHADPS4_SHOT_SECONDS="0")
+        env.pop("SHADPS4_HTL_SILENT_CAPTURE", None)
+        if args.silent_audio:
+            env["SHADPS4_HTL_SILENT_CAPTURE"] = "1"
+        if args.record_audio:
+            env["SHADPS4_NGS2_DUMP"] = str(args.record_audio)
+            env["SHADPS4_AUDIO3D_DUMP"] = str(args.record_audio)
+            env["SHADPS4_HTL_SILENT_CAPTURE"] = "1"
+            env["SHADPS4_NGS2_TRACE"] = "1"
+            env["SHADPS4_HTL_AUDIO_TRACE"] = "1"
+        if args.audio_balance_test:
+            env["SHADPS4_HTL_AUDIO3D_DB"] = "0"
+            env["SHADPS4_HTL_NGS2_DB"] = "0"
+            env["SHADPS4_HTL_NGS2_OUTPUT_GAIN"] = "1"
+            env["SHADPS4_HTL_AUDIO_TRACE"] = "1"
+            env["SHADPS4_AUDIO3D_TRACE"] = "1"
+        else:
+            env.pop("SHADPS4_HTL_AUDIO3D_DB", None)
+            env.pop("SHADPS4_HTL_NGS2_DB", None)
+            env.pop("SHADPS4_HTL_NGS2_OUTPUT_GAIN", None)
         if args.profile_cpu:
             env.update(SHADPS4_FRAME_STATS="1", SHADPS4_FRAME_STATS_EVERY="2",
                        SHADPS4_DBG_CALL_TIMES="1")

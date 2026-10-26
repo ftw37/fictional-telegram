@@ -2950,8 +2950,114 @@ index 0000000..9877763
 +}
 +
 +} // namespace Core::KnownTitle::Scenes
+diff --git a/src/core/libraries/audio/audio_safety.h b/src/core/libraries/audio/audio_safety.h
+new file mode 100644
+index 0000000..8a19902
+--- /dev/null
++++ b/src/core/libraries/audio/audio_safety.h
+@@ -0,0 +1,35 @@
++// SPDX-License-Identifier: GPL-2.0-or-later
++#pragma once
++#include <algorithm>
++#include <cmath>
++#include <span>
++#include "common/types.h"
++namespace Libraries::AudioOut {
++// Linked-channel peak protection; never boosts a quiet signal or changes its panning.
++class AudioSafety {
++public:
++    void Process(std::span<float> samples, u32 frames, u32 rate) {
++        float peak = 0;
++        for (float& sample : samples) {
++            if (!std::isfinite(sample)) sample = 0;
++            peak = std::max(peak, std::abs(sample));
++        }
++        ApplyGain(peak, frames, rate);
++        for (float& sample : samples) sample *= gain;
++    }
++    void Process(std::span<s16> samples, u32 frames, u32 rate) {
++        float peak = 0;
++        for (s16 sample : samples) peak = std::max(peak, std::abs(float(sample)/32768.0f));
++        ApplyGain(peak, frames, rate);
++        for (s16& sample : samples) sample = static_cast<s16>(float(sample)*gain);
++    }
++private:
++    void ApplyGain(float peak, u32 frames, u32 rate) {
++        constexpr float ceiling = 0.25f; // Headroom for the independently presented stereo/3D paths.
++        const float target = peak > ceiling ? ceiling/peak : 1.0f;
++        if (target < gain) gain = target;
++        else gain += (target-gain)*(1.0f-std::exp(-float(frames)/(std::max(rate,1u)*0.25f)));
++    }
++    float gain = 1.0f;
++};
++}
+diff --git a/src/core/libraries/audio/audioout.cpp b/src/core/libraries/audio/audioout.cpp
+index 92fcdbf..5e48ef0 100644
+--- a/src/core/libraries/audio/audioout.cpp
++++ b/src/core/libraries/audio/audioout.cpp
+@@ -2,6 +2,7 @@
+ // SPDX-License-Identifier: GPL-2.0-or-later
+ 
+ #include <memory>
++#include <cstdlib>
+ #include <mutex>
+ #include <shared_mutex>
+ #include <stop_token>
+@@ -14,6 +15,9 @@
+ #include "common/thread.h"
+ #include "core/emulator_settings.h"
+ #include "core/libraries/audio/audioout.h"
++#include "core/libraries/audio/audio_safety.h"
++#include "common/wave_dump.h"
++#include "common/path_util.h"
+ #include "core/libraries/audio/audioout_backend.h"
+ #include "core/libraries/audio/audioout_error.h"
+ #include "core/libraries/kernel/time.h"
+@@ -171,6 +175,17 @@ static void AudioOutputThread(std::shared_ptr<PortOut> port, const std::stop_tok
+     Common::AccurateTimer timer(
+         std::chrono::nanoseconds(1000000000ULL * port->buffer_frames / port->sample_rate));
+ 
++    AudioSafety safety;
++    Common::WaveDump delivered;
++    const char* capture = std::getenv("SHADPS4_NGS2_DUMP");
++    if (capture && std::atoi(capture)>0) {
++        const auto path = Common::FS::GetUserPath(Common::FS::PathType::UserDir) /
++                          fmt::format("delivered-port{}.wav", static_cast<int>(port->type));
++        delivered.Open(path.string(), port->format_info.num_channels, port->sample_rate,
++                       u64(std::clamp(std::atoi(capture),1,600))*port->sample_rate);
++    }
++    const bool guard = std::getenv("SHADPS4_HTL_AUDIO_GUARD") != nullptr;
++
+     while (true) {
+         timer.Start();
+ 
+@@ -181,6 +196,24 @@ static void AudioOutputThread(std::shared_ptr<PortOut> port, const std::stop_tok
+             }
+ 
+             if (port->output_ready) {
++                const size_t samples = size_t(port->buffer_frames)*port->format_info.num_channels;
++                if (port->format_info.is_float) {
++                    auto pcm = std::span(static_cast<float*>(port->output_buffer), samples);
++                    if (guard) safety.Process(pcm,port->buffer_frames,port->sample_rate);
++                    delivered.Write(pcm.data(),port->buffer_frames);
++                } else {
++                    auto pcm = std::span(static_cast<s16*>(port->output_buffer), samples);
++                    if (guard) safety.Process(pcm,port->buffer_frames,port->sample_rate);
++                    delivered.Write(pcm.data(),port->buffer_frames);
++                }
++                // Keep normal device pacing while recording upstream mixes without playback.
++                static const bool silent_capture = [] {
++                    const char* value = std::getenv("SHADPS4_HTL_SILENT_CAPTURE");
++                    return value && value[0] == '1';
++                }();
++                if (silent_capture) {
++                    std::memset(port->output_buffer, 0, port->BufferSize());
++                }
+                 port->impl->Output(port->output_buffer);
+                 port->output_ready = false;
+                 port->last_output_time =
 diff --git a/src/core/libraries/audio3d/audio3d.cpp b/src/core/libraries/audio3d/audio3d.cpp
-index ffd2194..8a60afe 100644
+index ffd2194..be99967 100644
 --- a/src/core/libraries/audio3d/audio3d.cpp
 +++ b/src/core/libraries/audio3d/audio3d.cpp
 @@ -1,13 +1,17 @@
@@ -2973,7 +3079,7 @@ index ffd2194..8a60afe 100644
  #include "core/libraries/audio/audioout.h"
  #include "core/libraries/audio/audioout_error.h"
  #include "core/libraries/audio3d/audio3d.h"
-@@ -23,80 +27,125 @@ static constexpr AudioOut::OrbisAudioOutParamFormat AUDIO3D_OUTPUT_FORMAT =
+@@ -23,80 +27,139 @@ static constexpr AudioOut::OrbisAudioOutParamFormat AUDIO3D_OUTPUT_FORMAT =
      AudioOut::OrbisAudioOutParamFormat::S16Stereo;
  static constexpr u32 AUDIO3D_OUTPUT_NUM_CHANNELS = 2;
  
@@ -3089,17 +3195,31 @@ index ffd2194..8a60afe 100644
 +            obj.placement.x = position[0];
 +            obj.placement.y = position[1];
 +            obj.placement.z = position[2];
-+        }
+         }
 +        return ORBIS_OK;
 +    }
 +    case OrbisAudio3dAttributeId::ORBIS_AUDIO3D_ATTRIBUTE_GAIN:
 +        if (read(obj.placement.gain)) {
-+            static const bool htl_db = std::getenv("SHADPS4_HTL_AUDIO_DB") != nullptr;
++            // Audio3D object gain is separate from NGS2 port-volume interpretation.
++            static const bool htl_db = [] {
++                const char* mode = std::getenv("SHADPS4_HTL_AUDIO3D_DB");
++                return mode && mode[0] == '1';
++            }();
++            if (TraceEnabled()) {
++                static u32 gain_logs = 0;
++                if (gain_logs++ < 128) {
++                    LOG_INFO(Lib_Audio3d, "HTL gain diagnostic: raw={} interpretation={}",
++                             obj.placement.gain, htl_db ? "decibel" : "linear");
++                }
++            }
 +            if (htl_db) {
 +                const float db = obj.placement.gain;
 +                obj.placement.gain = std::isfinite(db) && db > -100.0f
 +                                         ? std::pow(10.0f, std::clamp(db, -100.0f, 24.0f) / 20.0f)
 +                                         : 0.0f;
++            } else {
++                obj.placement.gain = std::isfinite(obj.placement.gain)
++                                         ? std::max(obj.placement.gain, 0.0f) : 0.0f;
 +            }
 +        }
 +        return ORBIS_OK;
@@ -3127,7 +3247,7 @@ index ffd2194..8a60afe 100644
 +        if (value != nullptr && size > 0 && size <= 4096) {
 +            const auto* src = static_cast<const u8*>(value);
 +            obj.persistent_attributes[static_cast<u32>(id)].assign(src, src + size);
-         }
++        }
 +        return ORBIS_OK;
      }
  }
@@ -3154,7 +3274,7 @@ index ffd2194..8a60afe 100644
  
      return AudioOut::sceAudioOutClose(handle);
  }
-@@ -126,13 +175,8 @@ s32 PS4_SYSV_ABI sceAudio3dAudioOutOpen(
+@@ -126,13 +189,8 @@ s32 PS4_SYSV_ABI sceAudio3dAudioOutOpen(
          return handle;
      }
  
@@ -3170,7 +3290,7 @@ index ffd2194..8a60afe 100644
      return handle;
  }
  
-@@ -149,35 +193,7 @@ s32 PS4_SYSV_ABI sceAudio3dAudioOutOutput(const s32 handle, void* ptr) {
+@@ -149,35 +207,7 @@ s32 PS4_SYSV_ABI sceAudio3dAudioOutOutput(const s32 handle, void* ptr) {
          return ORBIS_AUDIO3D_ERROR_INVALID_PORT;
      }
  
@@ -3207,7 +3327,7 @@ index ffd2194..8a60afe 100644
  }
  
  s32 PS4_SYSV_ABI sceAudio3dAudioOutOutputs(AudioOut::OrbisAudioOutOutputParam* param,
-@@ -189,43 +205,26 @@ s32 PS4_SYSV_ABI sceAudio3dAudioOutOutputs(AudioOut::OrbisAudioOutOutputParam* p
+@@ -189,43 +219,26 @@ s32 PS4_SYSV_ABI sceAudio3dAudioOutOutputs(AudioOut::OrbisAudioOutOutputParam* p
          return ORBIS_AUDIO3D_ERROR_INVALID_PARAMETER;
      }
  
@@ -3255,7 +3375,7 @@ index ffd2194..8a60afe 100644
      const u32 samples_to_copy = std::min(pcm.num_samples, granularity);
      std::memcpy(copy, pcm.sample_buffer, samples_to_copy * num_channels * bytes_per_sample);
  
-@@ -301,8 +300,7 @@ s32 PS4_SYSV_ABI sceAudio3dBedWrite2(const OrbisAudio3dPortId port_id, const u32
+@@ -301,8 +314,7 @@ s32 PS4_SYSV_ABI sceAudio3dBedWrite2(const OrbisAudio3dPortId port_id, const u32
                                   .sample_buffer = buffer,
                                   .num_samples = num_samples,
                               },
@@ -3265,7 +3385,7 @@ index ffd2194..8a60afe 100644
  }
  
  s32 PS4_SYSV_ABI sceAudio3dCreateSpeakerArray() {
-@@ -436,25 +434,13 @@ s32 PS4_SYSV_ABI sceAudio3dObjectSetAttribute(const OrbisAudio3dPortId port_id,
+@@ -436,25 +448,13 @@ s32 PS4_SYSV_ABI sceAudio3dObjectSetAttribute(const OrbisAudio3dPortId port_id,
      }
  
      auto& obj = port.objects[object_id];
@@ -3294,7 +3414,7 @@ index ffd2194..8a60afe 100644
  }
  
  s32 PS4_SYSV_ABI sceAudio3dObjectSetAttributes(const OrbisAudio3dPortId port_id,
-@@ -483,55 +469,26 @@ s32 PS4_SYSV_ABI sceAudio3dObjectSetAttributes(const OrbisAudio3dPortId port_id,
+@@ -483,55 +483,26 @@ s32 PS4_SYSV_ABI sceAudio3dObjectSetAttributes(const OrbisAudio3dPortId port_id,
      }
  
      auto& obj = port.objects[object_id];
@@ -3360,7 +3480,7 @@ index ffd2194..8a60afe 100644
          }
      }
  
-@@ -555,200 +512,150 @@ s32 PS4_SYSV_ABI sceAudio3dObjectUnreserve(const OrbisAudio3dPortId port_id,
+@@ -555,200 +526,150 @@ s32 PS4_SYSV_ABI sceAudio3dObjectUnreserve(const OrbisAudio3dPortId port_id,
          return ORBIS_AUDIO3D_ERROR_INVALID_OBJECT;
      }
  
@@ -3671,7 +3791,7 @@ index ffd2194..8a60afe 100644
  s32 PS4_SYSV_ABI sceAudio3dPortClose(const OrbisAudio3dPortId port_id) {
      LOG_INFO(Lib_Audio3d, "called, port_id = {}", port_id);
  
-@@ -766,10 +673,10 @@ s32 PS4_SYSV_ABI sceAudio3dPortClose(const OrbisAudio3dPortId port_id) {
+@@ -766,10 +687,10 @@ s32 PS4_SYSV_ABI sceAudio3dPortClose(const OrbisAudio3dPortId port_id) {
              port.audio_out_handle = -1;
          }
  
@@ -3685,7 +3805,7 @@ index ffd2194..8a60afe 100644
  
          for (auto& data : port.mixed_queue) {
              std::free(data.sample_buffer);
-@@ -778,12 +685,6 @@ s32 PS4_SYSV_ABI sceAudio3dPortClose(const OrbisAudio3dPortId port_id) {
+@@ -778,12 +699,6 @@ s32 PS4_SYSV_ABI sceAudio3dPortClose(const OrbisAudio3dPortId port_id) {
          for (auto& data : port.bed_queue) {
              std::free(data.sample_buffer);
          }
@@ -3698,7 +3818,7 @@ index ffd2194..8a60afe 100644
      }
  
      state->ports.erase(port_id);
-@@ -825,12 +726,9 @@ s32 PS4_SYSV_ABI sceAudio3dPortFlush(const OrbisAudio3dPortId port_id) {
+@@ -825,12 +740,9 @@ s32 PS4_SYSV_ABI sceAudio3dPortFlush(const OrbisAudio3dPortId port_id) {
      auto& port = state->ports[port_id];
      std::scoped_lock lock{port.mutex};
  
@@ -3714,7 +3834,7 @@ index ffd2194..8a60afe 100644
              if (ret < 0) {
                  return ret;
              }
-@@ -842,8 +740,8 @@ s32 PS4_SYSV_ABI sceAudio3dPortFlush(const OrbisAudio3dPortId port_id) {
+@@ -842,8 +754,8 @@ s32 PS4_SYSV_ABI sceAudio3dPortFlush(const OrbisAudio3dPortId port_id) {
          // Only mix if there's actually something to mix.
          if (!port.bed_queue.empty() ||
              std::any_of(port.objects.begin(), port.objects.end(),
@@ -3725,7 +3845,7 @@ index ffd2194..8a60afe 100644
              if (ret != ORBIS_OK && ret != ORBIS_AUDIO3D_ERROR_NOT_READY) {
                  return ret;
              }
-@@ -896,23 +794,25 @@ s32 PS4_SYSV_ABI sceAudio3dPortGetAttributesSupported(OrbisAudio3dPortId port_id
+@@ -896,23 +808,25 @@ s32 PS4_SYSV_ABI sceAudio3dPortGetAttributesSupported(OrbisAudio3dPortId port_id
          return ORBIS_AUDIO3D_ERROR_INVALID_PORT;
      }
  
@@ -3763,7 +3883,7 @@ index ffd2194..8a60afe 100644
      }
      return ORBIS_OK;
  }
-@@ -1105,6 +1005,11 @@ s32 PS4_SYSV_ABI sceAudio3dPortOpen(const Libraries::UserService::OrbisUserServi
+@@ -1105,6 +1019,11 @@ s32 PS4_SYSV_ABI sceAudio3dPortOpen(const Libraries::UserService::OrbisUserServi
  
      auto& port = state->ports.try_emplace(id).first->second;
      port.parameters = effective;
@@ -3775,7 +3895,7 @@ index ffd2194..8a60afe 100644
  
      *port_id = id;
  
-@@ -1129,12 +1034,6 @@ s32 PS4_SYSV_ABI sceAudio3dPortPush(const OrbisAudio3dPortId port_id,
+@@ -1129,12 +1048,6 @@ s32 PS4_SYSV_ABI sceAudio3dPortPush(const OrbisAudio3dPortId port_id,
          return ORBIS_AUDIO3D_ERROR_NOT_SUPPORTED;
      }
  
@@ -3788,7 +3908,7 @@ index ffd2194..8a60afe 100644
      if (port.audio_out_handle < 0) {
          AudioOut::OrbisAudioOutParamExtendedInformation ext_info{};
          ext_info.data_format.Assign(AUDIO3D_OUTPUT_FORMAT);
-@@ -1147,64 +1046,27 @@ s32 PS4_SYSV_ABI sceAudio3dPortPush(const OrbisAudio3dPortId port_id,
+@@ -1147,64 +1060,27 @@ s32 PS4_SYSV_ABI sceAudio3dPortPush(const OrbisAudio3dPortId port_id,
              return port.audio_out_handle;
      }
  
@@ -3826,7 +3946,7 @@ index ffd2194..8a60afe 100644
 -        std::scoped_lock lock{port.mutex};
 -        if (port.mixed_queue.size() < depth) {
 -            return ORBIS_OK;
--        }
+         }
 -    }
 -
 -    bool submitted = false;
@@ -3846,7 +3966,7 @@ index ffd2194..8a60afe 100644
 -            std::scoped_lock lock{port.mutex};
 -            if (port.mixed_queue.size() < depth)
 -                break;
-         }
+-        }
 -
 -        bool drained = false;
 -        ret = submit_one_frame(drained);
@@ -8725,10 +8845,10 @@ index 0000000..1aa48ae
 +} // namespace Libraries::Ngs2::Dsp
 diff --git a/src/core/libraries/ngs2/ngs2_engine.cpp b/src/core/libraries/ngs2/ngs2_engine.cpp
 new file mode 100644
-index 0000000..3706ffe
+index 0000000..115d346
 --- /dev/null
 +++ b/src/core/libraries/ngs2/ngs2_engine.cpp
-@@ -0,0 +1,2475 @@
+@@ -0,0 +1,2525 @@
 +// SPDX-FileCopyrightText: Copyright 2026 shadPS4 Emulator Project
 +// SPDX-License-Identifier: GPL-2.0-or-later
 +
@@ -9343,6 +9463,12 @@ index 0000000..3706ffe
 +        context.numOutputChannels = num_channels;
 +        context.numGrainSamples = count;
 +        context.sampleRate = voice.rack->system->sample_rate;
++        if (std::getenv("SHADPS4_HTL_AUDIO_TRACE") && state.param.size()>=32 &&
++            voice.rack->system->render_count % 200 == 0) {
++            float p[8]{}; std::memcpy(p,state.param.data(),32);
++            LOG_INFO(Lib_Ngs2,"HTL positional parameter: render={} voice={} pos=({},{},{}) raw_gain={} spread={}",
++                     voice.rack->system->render_count,voice.index,p[1],p[2],p[3],p[5],p[4]);
++        }
 +        CallUserFx2(option.processHandler, context);
 +        state.dirty = false;
 +        state.active = !finish;
@@ -9724,6 +9850,17 @@ index 0000000..3706ffe
 +            slot.state = {};
 +        }
 +    }
++    if (std::getenv("SHADPS4_HTL_AUDIO_TRACE") && system.render_count % 200 == 0) {
++        double sum = 0, energy = 0; float peak = 0;
++        for (u32 i = 0; i < count; ++i) {
++            const float v = out[0][i]; sum += v; energy += v*v; peak = std::max(peak,std::abs(v));
++        }
++        if (peak > 0.02f) LOG_INFO(Lib_Ngs2,
++            "HTL voice meter: render={} rack={} voice={} pcm={} mean={} rms={} peak={} looping={}",
++            system.render_count, voice.rack->serial, voice.index,
++            reinterpret_cast<uintptr_t>(sampler.waveform_data), sum/count, std::sqrt(energy/count), peak,
++            !sampler.queue.empty() && sampler.queue.front().repeats == RepeatForever);
++    }
 +    MixToPorts(voice, out.data(), num_channels, count);
 +    voice.fresh = false;
 +
@@ -9821,6 +9958,21 @@ index 0000000..3706ffe
 +        voice.peak = PeakOf(channels.data(), num_channels, count, sane);
 +        if (!sane) {
 +            ReportInsane(voice);
++        }
++        // Optional balance diagnostic: attenuate only the conventional NGS2 output,
++        // leaving the independent Audio3D object mix unchanged.
++        static const float output_gain = [] {
++            const char* text = std::getenv("SHADPS4_HTL_NGS2_OUTPUT_GAIN");
++            if (!text) return 1.0f;
++            char* end = nullptr;
++            const float value = std::strtof(text, &end);
++            return end != text && *end == '\0' && std::isfinite(value)
++                       ? std::clamp(value, 0.0f, 1.0f) : 1.0f;
++        }();
++        if (output_gain != 1.0f) {
++            for (u32 c = 0; c < num_channels; ++c) {
++                for (u32 i = 0; i < count; ++i) channels[c][i] *= output_gain;
++            }
 +        }
 +        if (voice.output_id < num_buffers) {
 +            WriteOutput(buffers[voice.output_id], channels.data(), count);
@@ -10116,12 +10268,23 @@ index 0000000..3706ffe
 +        if (param->port >= voice.ports.size()) {
 +            return ORBIS_NGS2_ERROR_INVALID_PORT_INDEX;
 +        }
-+        static const bool htl_db = std::getenv("SHADPS4_HTL_AUDIO_DB") != nullptr;
++        static const bool htl_db = [] {
++            const char* mode = std::getenv("SHADPS4_HTL_NGS2_DB");
++            return mode && mode[0] == '1';
++        }();
++        if (std::getenv("SHADPS4_HTL_AUDIO_TRACE")) {
++            static u32 reported = 0;
++            if (reported++ < 512) {
++                LOG_INFO(Lib_Ngs2, "HTL port gain: rack={:#x} voice={} port={} raw={} mode={}",
++                         voice.rack->rack_id, voice.index, param->port, param->level,
++                         htl_db ? "decibel" : "linear");
++            }
++        }
 +        voice.ports[param->port].volume =
 +            htl_db ? (std::isfinite(param->level) && param->level > -100.0f
 +                          ? std::pow(10.0f, std::clamp(param->level, -100.0f, 24.0f) / 20.0f)
 +                          : 0.0f)
-+                   : (std::isfinite(param->level) ? param->level : 0.0f);
++                   : (std::isfinite(param->level) ? std::max(param->level, 0.0f) : 0.0f);
 +        return ORBIS_OK;
 +    }
 +    case ParamPortMatrix: {
@@ -10205,6 +10368,13 @@ index 0000000..3706ffe
 +            return ORBIS_OK;
 +        }
 +        return ORBIS_NGS2_ERROR_INVALID_VOICE_CONTROL_ID;
++    }
++    if ((header->id & 0xffffff00) == 0x40001300) {
++        const auto* param = As<OrbisNgs2CustomVoiceFilterParam>(header);
++        if (!param) return ORBIS_NGS2_ERROR_INVALID_VOICE_CONTROL_SIZE;
++        SetFilter(voice, header->id & 0xff, param->type, param->channelMask,
++                  &param->param.direct.i0);
++        return ORBIS_OK;
 +    }
 +    u32 command_id = header->id;
 +    if (std::getenv("SHADPS4_HTL_COMPAT") && voice.rack->rack_id == RackIdCustomSampler &&
@@ -19859,7 +20029,7 @@ index d8a8fc2..878ff1d 100644
              memcpy(map + upload_pitch * y, tex->GetPixelsAt(upload_x, upload_y + y), upload_pitch);
          }
 diff --git a/src/input/controller.cpp b/src/input/controller.cpp
-index c3a9c56..966f1dc 100644
+index c3a9c56..41f56f7 100644
 --- a/src/input/controller.cpp
 +++ b/src/input/controller.cpp
 @@ -2,17 +2,21 @@
@@ -19889,7 +20059,7 @@ index c3a9c56..966f1dc 100644
  #include "core/libraries/system/userservice.h"
  #include "core/user_settings.h"
  #include "input/controller.h"
-@@ -21,209 +25,344 @@ namespace Input {
+@@ -21,209 +25,365 @@ namespace Input {
  
  using Libraries::Pad::OrbisPadButtonDataOffset;
  
@@ -20088,11 +20258,6 @@ index c3a9c56..966f1dc 100644
 -    const u64 timestamp = Libraries::Kernel::sceKernelGetProcessTime();
 -    m_state.OnAxis(axis, value, timestamp, smooth);
 -    PushStateLocked(timestamp);
--}
--
--void GameController::UpdateGyro(const float gyro[3]) {
--    std::lock_guard lock{m_state_mutex};
--    std::memcpy(gyro_buf, gyro, sizeof(gyro_buf));
 +    if (HeadsetPlays()) {
 +        return;
 +    }
@@ -20100,9 +20265,9 @@ index c3a9c56..966f1dc 100644
 +    PushState();
  }
  
--void GameController::UpdateAcceleration(const float acceleration[3]) {
+-void GameController::UpdateGyro(const float gyro[3]) {
 -    std::lock_guard lock{m_state_mutex};
--    std::memcpy(accel_buf, acceleration, sizeof(accel_buf));
+-    std::memcpy(gyro_buf, gyro, sizeof(gyro_buf));
 +OrbisPadButtonDataOffset GameController::ApplyRemoteLocked(OrbisPadButtonDataOffset buttons,
 +                                                           const std::array<int, 6>& axes,
 +                                                           bool touch_down, float touch_x,
@@ -20120,9 +20285,9 @@ index c3a9c56..966f1dc 100644
 +    return before;
  }
  
--void GameController::PollState() {
+-void GameController::UpdateAcceleration(const float acceleration[3]) {
 -    std::lock_guard lock{m_state_mutex};
--    PushStateLocked();
+-    std::memcpy(accel_buf, acceleration, sizeof(accel_buf));
 +void GameController::ApplyRemoteState(OrbisPadButtonDataOffset buttons,
 +                                      const std::array<int, 6>& axes, bool touch_down,
 +                                      float touch_x, float touch_y) {
@@ -20136,10 +20301,8 @@ index c3a9c56..966f1dc 100644
 +    }
  }
  
--void GameController::ResetOrientation() {
+-void GameController::PollState() {
 -    std::lock_guard lock{m_state_mutex};
--    m_state.orientation = {0.0f, 0.0f, 0.0f, 1.0f};
--    m_last_orientation_update = 0;
 -    PushStateLocked();
 +void GameController::ApplyHeadsetState(OrbisPadButtonDataOffset buttons,
 +                                       const std::array<int, 6>& axes, bool touch_down,
@@ -20158,9 +20321,11 @@ index c3a9c56..966f1dc 100644
 +    }
  }
  
--void GameController::SetTouchpadState(int touch_index, bool touch_down, float x, float y) {
--    if (touch_index < 0 || touch_index >= 2) {
--        return;
+-void GameController::ResetOrientation() {
+-    std::lock_guard lock{m_state_mutex};
+-    m_state.orientation = {0.0f, 0.0f, 0.0f, 1.0f};
+-    m_last_orientation_update = 0;
+-    PushStateLocked();
 +void GameController::SetHeadsetPlays(bool plays) {
 +    OrbisPadButtonDataOffset before;
 +    {
@@ -20172,15 +20337,7 @@ index c3a9c56..966f1dc 100644
 +        // Whoever played until now leaves nothing held.
 +        static constexpr std::array<int, 6> Rest{128, 128, 128, 128, 0, 0};
 +        before = ApplyRemoteLocked({}, Rest, false, 0.5f, 0.5f);
-     }
--
--    std::lock_guard lock{m_state_mutex};
--    const u64 timestamp = Libraries::Kernel::sceKernelGetProcessTime();
--    const bool was_pressed = m_state.touchpad[0].state || m_state.touchpad[1].state;
--    auto& touch = m_state.touchpad[touch_index];
--    if (touch_down && !touch.state) {
--        touch.ID = m_next_touch_id;
--        m_next_touch_id = m_next_touch_id == 127 ? 1 : m_next_touch_id + 1;
++    }
 +    {
 +        std::scoped_lock lock{m_finger_mutex};
 +        m_finger_down = false;
@@ -20189,31 +20346,15 @@ index c3a9c56..966f1dc 100644
 +        m_stick_finger.Reset();
 +        m_gestures.Reset();
 +        m_view_turn.Reset();
-     }
--    m_state.OnTouchpad(touch_index, touch_down, x, y);
--    const bool is_pressed = m_state.touchpad[0].state || m_state.touchpad[1].state;
--    if (!was_pressed && is_pressed) {
--        m_touch_down_timestamp = timestamp;
--    } else if (was_pressed && !is_pressed) {
--        m_touch_down_timestamp = 0;
++    }
 +    if (IsFirstController(this)) {
 +        NoteViewButtons(before, {});
-     }
--    PushStateLocked(timestamp);
++    }
  }
  
--void GameController::ConnectController(SDL_Gamepad* pad) {
--    std::lock_guard lock{m_state_mutex};
--    m_sdl_gamepad = pad;
--    if (override_colour) {
--        SetLightBarRGB({});
--    }
--    m_states_queue.Clear();
--    if (!m_state.connected) {
--        ++m_state.connected_count;
--        if (m_state.connected_count == 0) {
--            m_state.connected_count = 1;
--        }
+-void GameController::SetTouchpadState(int touch_index, bool touch_down, float x, float y) {
+-    if (touch_index < 0 || touch_index >= 2) {
+-        return;
 +void GameController::Gyro(int id) {
 +    m_state.OnGyro(gyro_buf);
 +    PushState();
@@ -20222,32 +20363,15 @@ index c3a9c56..966f1dc 100644
 +        Core::Vr::Runtime::Instance().PollViewGestures();
 +        UpdateStickTouch();
      }
--    m_state.connected = true;
--    m_last_orientation_update = 0;
--    PushStateLocked();
- }
++}
  
--void GameController::DisconnectController() {
 -    std::lock_guard lock{m_state_mutex};
--    m_states_queue.Clear();
--    m_sdl_gamepad = nullptr;
--
--    const u8 connected_count = m_state.connected_count;
--    m_state = {};
--    m_state.connected_count = connected_count;
--    std::fill(gyro_buf, gyro_buf + 3, 0.0f);
--    std::fill(accel_buf, accel_buf + 3, 0.0f);
--    accel_buf[1] = 9.81f;
--    m_next_touch_id = 1;
--    m_touch_down_timestamp = 0;
--    m_state.connected = false;
--    m_last_orientation_update = 0;
--    PushStateLocked();
--}
--
--void GameController::UpdateOrientationLocked(u64 timestamp) {
--    if (m_last_orientation_update == 0 || timestamp <= m_last_orientation_update) {
--        m_last_orientation_update = timestamp;
+-    const u64 timestamp = Libraries::Kernel::sceKernelGetProcessTime();
+-    const bool was_pressed = m_state.touchpad[0].state || m_state.touchpad[1].state;
+-    auto& touch = m_state.touchpad[touch_index];
+-    if (touch_down && !touch.state) {
+-        touch.ID = m_next_touch_id;
+-        m_next_touch_id = m_next_touch_id == 127 ? 1 : m_next_touch_id + 1;
 +void GameController::UpdateStickTouch() {
 +    // A controller without a touchpad of its own (or whose touchpad nobody touches): the right
 +    // stick moves a finger over it (see StickFinger for how). Titles made for a headset have
@@ -20259,14 +20383,14 @@ index c3a9c56..966f1dc 100644
 +    }();
 +    if (m_sdl_gamepad == nullptr || !Core::Vr::Runtime::Instance().IsHeadsetConnected() ||
 +        HeadsetPlays()) {
-         return;
++        return;
      }
--    const float delta_time =
--        static_cast<float>(timestamp - m_last_orientation_update) / 1'000'000.f;
--    Libraries::Pad::OrbisFQuaternion orientation{};
--    CalculateOrientation(m_state.angularVelocity, delta_time, m_state.orientation, orientation);
--    m_state.orientation = orientation;
--    m_last_orientation_update = timestamp;
+-    m_state.OnTouchpad(touch_index, touch_down, x, y);
+-    const bool is_pressed = m_state.touchpad[0].state || m_state.touchpad[1].state;
+-    if (!was_pressed && is_pressed) {
+-        m_touch_down_timestamp = timestamp;
+-    } else if (was_pressed && !is_pressed) {
+-        m_touch_down_timestamp = 0;
 +    std::scoped_lock lock{m_finger_mutex};
 +    // The left shoulder button, which such a title has no use for in play, held: each flick
 +    // of the right stick to a side turns the view a step that way (see ViewTurn), for players
@@ -20280,7 +20404,21 @@ index c3a9c56..966f1dc 100644
 +                         32767.0f);
 +        steps != 0) {
 +        Core::Vr::Runtime::Instance().TurnView(steps);
-+    }
+     }
+-    PushStateLocked(timestamp);
+-}
+-
+-void GameController::ConnectController(SDL_Gamepad* pad) {
+-    std::lock_guard lock{m_state_mutex};
+-    m_sdl_gamepad = pad;
+-    if (override_colour) {
+-        SetLightBarRGB({});
+-    }
+-    m_states_queue.Clear();
+-    if (!m_state.connected) {
+-        ++m_state.connected_count;
+-        if (m_state.connected_count == 0) {
+-            m_state.connected_count = 1;
 +    if (m_finger_down) {
 +        // A real finger is on the pad: the stick's has nothing to say, and is not back on
 +        // the pad the moment the real one lifts either.
@@ -20334,37 +20472,89 @@ index c3a9c56..966f1dc 100644
 +            m_stick_touch_x = touch.x;
 +            m_stick_touch_y = touch.y;
 +            ApplyTouch(0, true, touch.x, touch.y);
-+        }
+         }
 +    } else if (m_stick_touch) {
 +        ApplyTouch(0, false, m_stick_touch_x, m_stick_touch_y);
-+    }
+     }
+-    m_state.connected = true;
+-    m_last_orientation_update = 0;
+-    PushStateLocked();
 +    m_stick_touch = touch.down;
+ }
+ 
+-void GameController::DisconnectController() {
+-    std::lock_guard lock{m_state_mutex};
+-    m_states_queue.Clear();
+-    m_sdl_gamepad = nullptr;
++void GameController::Acceleration(int id) {
++    m_state.OnAccel(accel_buf);
++    PushState();
++}
+ 
+-    const u8 connected_count = m_state.connected_count;
+-    m_state = {};
+-    m_state.connected_count = connected_count;
+-    std::fill(gyro_buf, gyro_buf + 3, 0.0f);
+-    std::fill(accel_buf, accel_buf + 3, 0.0f);
+-    accel_buf[1] = 9.81f;
+-    m_next_touch_id = 1;
+-    m_touch_down_timestamp = 0;
+-    m_state.connected = false;
+-    m_last_orientation_update = 0;
+-    PushStateLocked();
+-}
+-
+-void GameController::UpdateOrientationLocked(u64 timestamp) {
+-    if (m_last_orientation_update == 0 || timestamp <= m_last_orientation_update) {
+-        m_last_orientation_update = timestamp;
+-        return;
+-    }
+-    const float delta_time =
+-        static_cast<float>(timestamp - m_last_orientation_update) / 1'000'000.f;
+-    Libraries::Pad::OrbisFQuaternion orientation{};
+-    CalculateOrientation(m_state.angularVelocity, delta_time, m_state.orientation, orientation);
+-    m_state.orientation = orientation;
+-    m_last_orientation_update = timestamp;
++void GameController::UpdateGyro(const float gyro[3]) {
++    std::scoped_lock l(m_states_queue_mutex);
++    std::memcpy(gyro_buf, gyro, sizeof(gyro_buf));
  }
  
 -void GameController::PushStateLocked(u64 timestamp) {
 -    if (timestamp == 0) {
 -        timestamp = Libraries::Kernel::sceKernelGetProcessTime();
--    }
++void GameController::UpdateAcceleration(const float acceleration[3]) {
++    std::scoped_lock l(m_states_queue_mutex);
++    std::memcpy(accel_buf, acceleration, sizeof(accel_buf));
++}
++
++void GameController::PollState() {
++    {
++        std::lock_guard lock(m_states_queue_mutex);
++        m_state.UpdateAxisSmoothing();
++        if (!HeadsetPlays()) {
++            m_state.OnGyro(gyro_buf);
++            m_state.OnAccel(accel_buf);
++        }
++        // Pad reads require fresh samples even when a held button or stick is unchanged.
++        m_state.time = Libraries::Kernel::sceKernelGetProcessTime();
++        m_states_queue.Push(m_state);
++    }
++    if (IsFirstController(this)) {
++        Core::Vr::Runtime::Instance().PollViewGestures();
++        // HTL uses both sticks and triggers as ordinary DualShock controls.
++        if (Common::ElfInfo::Instance().GameSerial() != "CUSA05344") {
++            UpdateStickTouch();
++        }
+     }
 -    m_state.UpdateAxisSmoothing(timestamp);
 -    m_state.OnGyro(gyro_buf);
-+void GameController::Acceleration(int id) {
-     m_state.OnAccel(accel_buf);
+-    m_state.OnAccel(accel_buf);
 -    UpdateOrientationLocked(timestamp);
 -    m_state.time = timestamp;
 -    m_state.touch_time_since_held_down =
 -        m_touch_down_timestamp == 0 ? 0 : timestamp - m_touch_down_timestamp;
 -    m_states_queue.Push(m_state);
-+    PushState();
-+}
-+
-+void GameController::UpdateGyro(const float gyro[3]) {
-+    std::scoped_lock l(m_states_queue_mutex);
-+    std::memcpy(gyro_buf, gyro, sizeof(gyro_buf));
-+}
-+
-+void GameController::UpdateAcceleration(const float acceleration[3]) {
-+    std::scoped_lock l(m_states_queue_mutex);
-+    std::memcpy(accel_buf, acceleration, sizeof(accel_buf));
 +}
 +
 +void GameController::UpdateAxisSmoothing() {
@@ -20386,7 +20576,7 @@ index c3a9c56..966f1dc 100644
      if (m_sdl_gamepad != nullptr) {
          SDL_SetGamepadLED(m_sdl_gamepad, r, g, b);
      }
-@@ -260,29 +399,137 @@ void GameControllers::ResetLightbarColors() {
+@@ -260,29 +420,137 @@ void GameControllers::ResetLightbarColors() {
  }
  
  bool GameController::SetVibration(u8 smallMotor, u8 largeMotor) {
@@ -20526,7 +20716,7 @@ index c3a9c56..966f1dc 100644
              for (int j = 0; j < controller_count; j++) {
                  if (new_joysticks[j] == id) {
                      still_connected = true;
-@@ -292,6 +539,7 @@ void GameControllers::TryOpenSDLControllers() {
+@@ -292,6 +560,7 @@ void GameControllers::TryOpenSDLControllers() {
                  }
              }
              if (!still_connected) {
@@ -20534,7 +20724,7 @@ index c3a9c56..966f1dc 100644
                  SDL_CloseGamepad(pad);
                  controllers[i]->DisconnectController();
                  controllers[i]->user_id = -1;
-@@ -300,13 +548,45 @@ void GameControllers::TryOpenSDLControllers() {
+@@ -300,13 +569,45 @@ void GameControllers::TryOpenSDLControllers() {
          }
      }
  
@@ -20580,7 +20770,7 @@ index c3a9c56..966f1dc 100644
              continue;
          }
  
-@@ -325,19 +605,38 @@ void GameControllers::TryOpenSDLControllers() {
+@@ -325,19 +626,38 @@ void GameControllers::TryOpenSDLControllers() {
                  c->user_id = u->user_id;
                  UserManagement.LoginUser(u, i + 1);
                  c->ConnectController(pad);
@@ -20623,7 +20813,7 @@ index c3a9c56..966f1dc 100644
                      } else {
                          LOG_ERROR(Input, "Failed to initialize accel controls for gamepad {}",
                                    c->user_id);
-@@ -349,15 +648,77 @@ void GameControllers::TryOpenSDLControllers() {
+@@ -349,15 +669,77 @@ void GameControllers::TryOpenSDLControllers() {
      }
      if (is_first_check) [[unlikely]] {
          is_first_check = false;
@@ -20707,7 +20897,7 @@ index c3a9c56..966f1dc 100644
      auto g = SDL_GetGamepadFromID(id);
      ASSERT(g != nullptr);
 diff --git a/src/input/controller.h b/src/input/controller.h
-index 6505cc0..591c2b8 100644
+index 6505cc0..3372d31 100644
 --- a/src/input/controller.h
 +++ b/src/input/controller.h
 @@ -3,10 +3,10 @@
@@ -20786,7 +20976,7 @@ index 6505cc0..591c2b8 100644
 +        state.connected_count = static_cast<u8>(count);
 +        return state;
 +    }
-+    void PollState() { UpdateAxisSmoothing(); }
++    void PollState();
 +    void ResetOrientation() {
 +        Libraries::Pad::OrbisFQuaternion identity{0, 0, 0, 1};
 +        SetLastOrientation(identity);

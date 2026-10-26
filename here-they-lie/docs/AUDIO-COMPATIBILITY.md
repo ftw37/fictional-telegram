@@ -1,3 +1,5 @@
+> Updated October 25: the earlier decibel interpretation described below was incorrect. Both mixer and positional gains are now linear; see [audio correction](AUDIO-FIX-2026-10-25.md).
+
 # Audio compatibility work
 
 The title calls `sceNgs2ParseWaveformData`. In the pinned source this returned success without filling the output, so later sampler setup interpreted unrelated memory as a sound format. The compatibility path now parses bounded RIFF/WAVE metadata, including PCM and ATRAC9. It rejects truncated chunks, unsupported formats, inconsistent channel/rate configurations and size overflow.
