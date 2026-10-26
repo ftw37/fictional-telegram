@@ -2,7 +2,7 @@ param(
  [string]$DevelopmentRoot = "$HOME/Documents/Codex/HTL-Development",
  [string]$RuntimeRoot = "$HOME/Documents/Codex/HTL-Development/experiments/stable020-a",
  [string]$Python = "$HOME/.cache/codex-runtimes/codex-primary-runtime/dependencies/python/python.exe",
- [string]$Game = "$HOME/Documents/Codex/HTL-Test/no-vignette-v1/uroot"
+ [string]$Game = "$HOME/Documents/Codex/HTL-Test/game/uroot"
 )
 $ErrorActionPreference = 'Stop'
 $runtime = [IO.Path]::GetFullPath($RuntimeRoot)
@@ -48,6 +48,8 @@ function BatchPath([string]$path) {
 $command = (BatchPath $Python) + ' ' + (BatchPath $launcher) + ' --development-root ' +
  (BatchPath $runtime) + ' --game ' + (BatchPath $Game) + ' --renderer-sync pass --real-occlusion'
 foreach ($entry in @(
+ @{Name='Launch-Here-They-Lie.cmd'; Mode='preview'; Tv=$false},
+ @{Name='Play-Here-They-Lie-SteamVR.cmd'; Mode='quest'; Tv=$false},
  @{Name='Launch-Here-They-Lie-No-Vignette.cmd'; Mode='preview'; Tv=$false},
  @{Name='Play-Here-They-Lie-SteamVR-No-Vignette.cmd'; Mode='quest'; Tv=$false},
  @{Name='Launch-Here-They-Lie-With-TV.cmd'; Mode='preview'; Tv=$true},
