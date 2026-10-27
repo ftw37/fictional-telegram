@@ -2,9 +2,10 @@
 
 Development tools, reproducible build instructions and diagnostic experiments for running a personally supplied copy of Here They Lie through AstroQuest/shadPS4, ultimately on a Quest 2 via Virtual Desktop.
 
-**Status (October 26):** physical Quest 2 playback through Virtual Desktop/SteamVR has now been tested. The user played through several checkpoints with working head tracking and confirmed clear speech, footsteps and ambient audio. Desktop opening-to-platform replay passed repeatedly. Startup splash/calibration orientation and a later guest render-thread crash remain unresolved; the newest startup-pose candidate is built but has not been headset-tested. This is an experimental compatibility project, not a finished standalone Quest port.
+**Status (October 26, latest physical test):** Quest 2 playback via Virtual Desktop/SteamVR now has upright logos, loading, calibration and gameplay, with working tracking and a both-thumbstick OPTIONS chord. Audio was user-confirmed good. An exact-function stack reservation passed the next physical crash retest; that session ended on headset battery exhaustion, so long-session/full-game stability is not established. Normal stable launchers and the latest Quest test candidate remain separate.
 
-Start with [setup on another Windows PC](docs/GETTING-STARTED.md), then read [current progress and known issues](docs/PROJECT-STATUS-2026-10-26.md). The historical [October 24 measurements](docs/COMPREHENSIVE-RUN-2026-10-24.md) predate physical testing.
+**For future work, start with [RESUME-HERE](docs/RESUME-HERE.md).** It records the current launcher, hashes, patch order, config and evidence limits. The [detailed investigation history](docs/DEVELOPMENT-HISTORY.md) preserves the complete engineering progression and failed experiments; the [PSVR porting playbook](docs/PSVR-PORTING-PLAYBOOK.md) explains how to reuse the methods for another title. [New-PC setup](docs/GETTING-STARTED.md) remains the installation guide.
+
 ## Native comfort controls (October 26)
 
 Normal play now uses original game assets, restoring the native turning vignette. Choose turning and comfort through the game options; saved settings are preserved. See [comfort controls and launcher names](docs/GAME-COMFORT-2026-10-26.md).

@@ -1,5 +1,7 @@
 # Investigation state
 
+> Historical snapshot: later physical orientation and crash retests are recorded in [the current handoff](RESUME-HERE.md). Follow that handoff for the current candidate and defaults.
+
 ## Working reference
 
 Here They Lie EU CUSA05344 v01.00. User's Quest 2 connects through Virtual Desktop but was not available for headset tests. Baseline installed emulator is AstroQuest 0.23 at the pinned upstream revision. Its expected executable hash is in upstream.lock.json. Existing test installation remains separate from source and build output.

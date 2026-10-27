@@ -1,3 +1,107 @@
+diff --git a/src/core/cpu_patches.cpp b/src/core/cpu_patches.cpp
+index 605fcf3..f2403a8 100644
+--- a/src/core/cpu_patches.cpp
++++ b/src/core/cpu_patches.cpp
+@@ -25,6 +25,7 @@
+ #include "common/assert.h"
+ #include "common/decoder.h"
+ #include "common/signal_context.h"
++#include "common/sha1.h"
+ #include "common/types.h"
+ #include "core/signals.h"
+ #include "core/tls.h"
+@@ -2477,6 +2478,63 @@ void RegisterPatchModule(void* module_ptr, u64 module_size, void* trampoline_are
+                                           trampoline_area_size));
+ }
+ 
++
++// Version-checked HTL render leaf frame. Reserve real stack storage rather than
++// dropping the faulting draw or changing its algorithm. Only the known full body matches.
++bool ProtectHtlRenderLeaf(u64 base, u64 size) {
++#ifdef _WIN32
++    const char* enable = std::getenv("SHADPS4_HTL_LEAF_FRAME");
++    if (!enable || enable[0] != '1' || size < 0x1b74cad) return false;
++    auto* module = GetContainingModule(reinterpret_cast<void*>(base + 0x1b74520));
++    if (!module) return false;
++    std::scoped_lock lock{module->mutex};
++    auto* entry = reinterpret_cast<u8*>(base + 0x1b74520);
++    auto* exit = reinterpret_cast<u8*>(base + 0x1b74ca2);
++    constexpr std::array<u8,20> expected{0x76,0x25,0xcf,0x6a,0x4b,0xd7,0x8e,0x32,0x08,0x27,
++                                      0x08,0xf5,0x27,0x53,0x89,0x87,0x8f,0xed,0xb1,0xaa};
++    sha1::SHA1 hash;
++    sha1::SHA1::digest8_t digest;
++    hash.processBytes(entry, 1933).getDigestBytes(digest);
++    if (std::memcmp(digest, expected.data(), expected.size()) != 0) {
++        LOG_WARNING(Core, "HTL leaf-frame signature mismatch; no guest code changed");
++        return false;
++    }
++    std::array<u8,13> saved_entry;
++    std::array<u8,5> saved_exit;
++    std::memcpy(saved_entry.data(), entry, saved_entry.size());
++    std::memcpy(saved_exit.data(), exit, saved_exit.size());
++    using namespace Xbyak::util;
++    auto& trampoline = module->trampoline_gen;
++    const auto begin = trampoline.getSize();
++    try {
++        const auto* enter_stub = trampoline.getCurr();
++        trampoline.db(entry, 13); // unchanged frame pointer and five saved registers
++        trampoline.lea(rsp, ptr[rsp - 128]); // flag-preserving explicit red-zone reservation
++        trampoline.jmp(entry + 13);
++        const auto* exit_stub = trampoline.getCurr();
++        trampoline.lea(rsp, ptr[rsp + 128]);
++        trampoline.db(exit, 5); // original pop rbx/r12/r13
++        trampoline.jmp(exit + 5); // remaining original pops and ret
++        auto& patch = module->patch_gen;
++        patch.reset();
++        patch.setSize(entry - patch.getCode());
++        patch.jmp(enter_stub, Xbyak::CodeGenerator::LabelType::T_NEAR);
++        patch.nop(8);
++        patch.reset();
++        patch.setSize(exit - patch.getCode());
++        patch.jmp(exit_stub, Xbyak::CodeGenerator::LabelType::T_NEAR);
++        LOG_INFO(Core, "HTL render leaf: explicit 128-byte stack frame installed");
++        return true;
++    } catch (const Xbyak::Error& error) {
++        trampoline.setSize(begin);
++        std::memcpy(entry, saved_entry.data(), saved_entry.size());
++        std::memcpy(exit, saved_exit.data(), saved_exit.size());
++        LOG_ERROR(Core, "HTL leaf-frame trampoline failed; original code restored: {}", error.what());
++    }
++#endif
++    return false;
++}
++
+ void PrePatchInstructions(u64 segment_addr, u64 segment_size) {
+ #if !defined(_WIN32) && !defined(__APPLE__)
+     // Linux and others have an FS segment pointing to valid memory, so continue to do full
+diff --git a/src/core/cpu_patches.h b/src/core/cpu_patches.h
+index 1af2eab..4e29294 100644
+--- a/src/core/cpu_patches.h
++++ b/src/core/cpu_patches.h
+@@ -79,6 +79,9 @@ void RegisterPatchModule(void* module_ptr, u64 module_size, void* trampoline_are
+ /// Applies CPU patches that need to be done before beginning executions.
+ void PrePatchInstructions(u64 segment_addr, u64 segment_size);
+ 
++/// Opt-in, exact-body-checked HTL leaf stack reservation.
++bool ProtectHtlRenderLeaf(u64 base, u64 size);
++
+ // Windows static guest red-zone protection
+ /// Keeps Windows exception dispatch outside live guest red zones at faultable memory accesses.
+ RedZonePatchResult PatchRedZoneMemoryInstructions(u64 segment_addr, u64 segment_size,
+diff --git a/src/core/module.cpp b/src/core/module.cpp
+index cd226a1..c37e526 100644
+--- a/src/core/module.cpp
++++ b/src/core/module.cpp
+@@ -297,6 +297,9 @@ void Module::LoadModuleToMemory(u32& max_tls_index) {
+     }
+ 
+ #ifdef ARCH_X86_64
++    if (name == "eboot.bin" && MemoryPatcher::g_game_serial == "CUSA05344") {
++        ProtectHtlRenderLeaf(base_virtual_addr, base_size);
++    }
+     // The game's memory patches are applied first, so that the code decoded here is the code
+     // that executes.
+     if (use_static_patching) {
 diff --git a/src/core/signals.cpp b/src/core/signals.cpp
 index b4e4afc..52941f8 100644
 --- a/src/core/signals.cpp
@@ -14,36 +118,73 @@ index b4e4afc..52941f8 100644
                           pExp->ExceptionRecord->ExceptionInformation[0],
                           pExp->ExceptionRecord->ExceptionInformation[1]);
 diff --git a/src/core/vr/openxr_host.cpp b/src/core/vr/openxr_host.cpp
-index 11fa265..fac9a35 100644
+index 11fa265..c19480a 100644
 --- a/src/core/vr/openxr_host.cpp
 +++ b/src/core/vr/openxr_host.cpp
-@@ -519,6 +519,8 @@ struct OpenXrHost::Impl {
+@@ -519,6 +519,7 @@ struct OpenXrHost::Impl {
      u32 late_frames{};
      u32 late_waits_missed{};
      u32 head_tracked_frames{};
 +    bool startup_head_ready{};
-+    u32 startup_upright_frames{};
      u32 palm_samples{};
      float palm_distance{};
      u32 pad_samples{};
-@@ -1865,7 +1867,7 @@ struct OpenXrHost::Impl {
+@@ -1282,7 +1283,7 @@ struct OpenXrHost::Impl {
+                      "it (left stick to move, right A = cross, right B = square, left X/A = "
+                      "circle, left Y/B = triangle, right stick = finger on the touchpad, "
+                      "pressed in = touchpad pressed, left menu/trackpad = OPTIONS, "
+-                     "both sticks pressed in = reset the view; the {} "
++                     "both sticks pressed in = OPTIONS for HTL (reset view otherwise); the {} "
+                      "one is the controller in the game: its trigger presses the touchpad, its "
+                      "grip swipes forward, the other trigger pulls back and lets go; the other "
+                      "grip held, the right stick flicked to a side turns the view a step)",
+@@ -1292,17 +1293,19 @@ struct OpenXrHost::Impl {
+                      pad_hand == 0 ? "left" : "right");
+         }
+ 
+-        // Both sticks pressed in is not something a game is played with: it resets the view,
+-        // which a gamepad's OPTIONS button does when held and which the headset's own menu
+-        // button may not be free for.
+-        const bool view_reset = left_stick_in && right_stick_in;
++        // Both sticks are OPTIONS for HTL; retain Astro Bot's synthetic recenter otherwise.
++        const bool both_sticks = left_stick_in && right_stick_in;
++        // HTL needs its ordinary OPTIONS button even when SteamVR reserves left Menu.
++        // Forward the whole hold (not just an edge) for the game's calibration hold too.
++        add(htl_controls && both_sticks, Buttons::Options);
++        const bool view_reset = !htl_controls && both_sticks;
+         if (view_reset && !view_reset_held) {
+             LOG_INFO(Core, "Both sticks pressed in: view reset");
+             Runtime::Instance().RequestRecenter();
+         }
+         view_reset_held = view_reset;
+-        add(left_stick_in && !view_reset, Buttons::L3);
+-        add(right_stick_in && !view_reset,
++        add(left_stick_in && !both_sticks, Buttons::L3);
++        add(right_stick_in && !both_sticks,
+             htl_controls ? Buttons::R3 : Buttons::TouchPad);
+ 
+         const auto axis = [](float value) {
+@@ -1865,11 +1868,9 @@ struct OpenXrHost::Impl {
                      shown_height = slot.height;
                      have_frame = true;
                      ++copied_frames;
 -                    if (IsTheatre(shown.presentation_state) &&
 +                    if (startup_head_ready && IsTheatre(shown.presentation_state) &&
                          theatre_anchor_state != shown.presentation_state) {
-                         const auto forward = Rotate(head_pose.orientation, {0, 0, -1});
-                         const float yaw = std::atan2(-forward.x, -forward.z);
-@@ -1895,13 +1897,24 @@ struct OpenXrHost::Impl {
+-                        const auto forward = Rotate(head_pose.orientation, {0, 0, -1});
+-                        const float yaw = std::atan2(-forward.x, -forward.z);
+-                        theatre_pose.orientation = {0, std::sin(yaw / 2), 0, std::cos(yaw / 2)};
++                        theatre_pose.orientation = head_pose.orientation;
+                         const auto offset = Rotate(theatre_pose.orientation, {0, 0, -1.524f});
+                         theatre_pose.position = {head_pose.position.x + offset.x,
+                                                 head_pose.position.y,
+@@ -1895,6 +1896,15 @@ struct OpenXrHost::Impl {
                  }
              }
  
 +            if (startup_head_ready && have_frame && IsTheatre(shown.presentation_state) &&
 +                theatre_anchor_state != shown.presentation_state) {
-+                const auto forward = Rotate(head_pose.orientation, {0, 0, -1});
-+                const float yaw = std::atan2(-forward.x, -forward.z);
-+                theatre_pose.orientation = {0, std::sin(yaw / 2), 0, std::cos(yaw / 2)};
++                theatre_pose.orientation = head_pose.orientation;
 +                const auto offset = Rotate(theatre_pose.orientation, {0, 0, -1.524f});
 +                theatre_pose.position = {head_pose.position.x + offset.x, head_pose.position.y,
 +                                         head_pose.position.z + offset.z};
@@ -53,41 +194,52 @@ index 11fa265..fac9a35 100644
              XrCompositionLayerProjectionView views[2]{{XR_TYPE_COMPOSITION_LAYER_PROJECTION_VIEW},
                                                        {XR_TYPE_COMPOSITION_LAYER_PROJECTION_VIEW}};
              XrCompositionLayerProjection projection{XR_TYPE_COMPOSITION_LAYER_PROJECTION};
-             XrCompositionLayerQuad theatre{XR_TYPE_COMPOSITION_LAYER_QUAD};
-             const XrCompositionLayerBaseHeader* layers[1]{};
-             uint32_t layer_count = 0;
--            if (frame_state.shouldRender == XR_TRUE && have_frame &&
-+            if (frame_state.shouldRender == XR_TRUE && have_frame && startup_head_ready &&
+@@ -1905,12 +1915,15 @@ struct OpenXrHost::Impl {
                  swapchain != XR_NULL_HANDLE &&
                  (!TheatreEnabled() || shown.presentation_state == PresentationState())) {
                  if (IsTheatre(shown.presentation_state)) {
-@@ -1979,7 +1992,24 @@ struct OpenXrHost::Impl {
+-                    theatre.space = local_space;
++                    theatre.space = startup_head_ready ? local_space : view_space;
+                     theatre.eyeVisibility = XR_EYE_VISIBILITY_BOTH;
+                     theatre.subImage.swapchain = swapchain;
+                     theatre.subImage.imageRect.extent = {static_cast<int32_t>(shown_width),
+                                                         static_cast<int32_t>(shown_height)};
+-                    theatre.pose = theatre_pose;
++                    // Before accepting a startup pose, show the flat screen upright in view
++                    // space instead of hiding logos or anchoring to a stale rolled pose.
++                    theatre.pose = startup_head_ready ? theatre_pose
++                        : XrPosef{{0, 0, 0, 1}, {0, 0, -1.524f}};
+                     theatre.size = {2.0f, 2.0f * shown_height / shown_width};
+                     layers[layer_count++] =
+                         reinterpret_cast<const XrCompositionLayerBaseHeader*>(&theatre);
+@@ -1979,9 +1992,23 @@ struct OpenXrHost::Impl {
          XrSpaceVelocity velocity{XR_TYPE_SPACE_VELOCITY};
          XrSpaceLocation location{XR_TYPE_SPACE_LOCATION};
          location.next = &velocity;
 -        if (XR_SUCCEEDED(xrLocateSpace(view_space, local_space, time, &location)) &&
+-            (location.locationFlags & XR_SPACE_LOCATION_ORIENTATION_VALID_BIT) != 0 &&
+-            (location.locationFlags & XR_SPACE_LOCATION_POSITION_VALID_BIT) != 0) {
 +        const bool located = XR_SUCCEEDED(xrLocateSpace(view_space, local_space, time, &location));
 +        const auto tracked_bits = XR_SPACE_LOCATION_ORIENTATION_TRACKED_BIT |
 +                                  XR_SPACE_LOCATION_POSITION_TRACKED_BIT;
-+        if (!startup_head_ready) {
-+            // SteamVR can supply a valid but untracked, rolled pose while the headset wakes.
-+            // Never let it establish the guest's initial seat. This gate applies only once;
-+            // normal gameplay may tilt/invert freely after startup.
-+            const auto up = Rotate(location.pose.orientation, {0, 1, 0});
-+            const bool ready = located && (location.locationFlags & tracked_bits) == tracked_bits &&
-+                               std::isfinite(up.y) && up.y > 0.25f;
-+            startup_upright_frames = ready ? startup_upright_frames + 1 : 0;
-+            if (startup_upright_frames >= 8) {
-+                startup_head_ready = true;
-+                theatre_anchor_state = ~u64{0};
-+                LOG_INFO(Core, "Startup head accepted after eight tracked upright poses");
-+            }
++        const auto valid_bits = XR_SPACE_LOCATION_ORIENTATION_VALID_BIT |
++                                XR_SPACE_LOCATION_POSITION_VALID_BIT;
++        const bool valid = located && (location.locationFlags & valid_bits) == valid_bits;
++        // Tracking must not depend on a gravity/upright heuristic: runtime reference spaces
++        // may be rolled. Admit the first fully tracked pose regardless of its orientation.
++        const bool first_tracked_pose = !startup_head_ready && valid &&
++            (location.locationFlags & tracked_bits) == tracked_bits;
++        if (first_tracked_pose) {
++            startup_head_ready = true;
++            theatre_anchor_state = ~u64{0};
++            LOG_INFO(Core, "Startup tracking ready; orientation-independent world tracking enabled");
 +        }
-+        if (startup_head_ready && located &&
-             (location.locationFlags & XR_SPACE_LOCATION_ORIENTATION_VALID_BIT) != 0 &&
-             (location.locationFlags & XR_SPACE_LOCATION_POSITION_VALID_BIT) != 0) {
++        // Continue feeding valid poses independently of startup presentation readiness.
++        if (valid) {
              DeviceState state;
-@@ -1998,9 +2028,9 @@ struct OpenXrHost::Impl {
+             state.pose.position = {location.pose.position.x, location.pose.position.y,
+                                    location.pose.position.z};
+@@ -1998,13 +2025,17 @@ struct OpenXrHost::Impl {
              }
              state.tracked = true;
              if (head_tracked_frames == 0) {
@@ -99,6 +251,71 @@ index 11fa265..fac9a35 100644
              }
              // (SHADPS4_XR_HEAD=0, for tests: the head is somebody else's to move, a script's.)
              if (feed_head) {
+                 runtime.UpdateHead(state);
++                if (first_tracked_pose) {
++                    // Replace any earlier valid-but-untracked boot reference.
++                    runtime.RecenterSeat();
++                }
+             }
+             head_pose = location.pose;
+             ++head_tracked_frames;
+@@ -2537,6 +2568,11 @@ struct OpenXrHost::Impl {
+         } else {
+             orientation = {0.0f, 0.0f, 0.0f, 1.0f};
+         }
++        // Calibration may precede the first accepted tracking pose. Its static stereo
++        // image is head-relative during that interval; world tracking takes over afterward.
++        if (!startup_head_ready) {
++            orientation = {0, 0, 0, 1};
++        }
+         const float angle_out = std::atan(shown.fov.tan_out);
+         const float angle_in = std::atan(shown.fov.tan_in);
+         const float angle_up = std::atan(shown.fov.tan_top);
+@@ -2547,9 +2583,11 @@ struct OpenXrHost::Impl {
+             const float side = eye == 0 ? -0.5f : 0.5f;
+             const XrVector3f offset = Rotate(orientation, {side * ipd, 0.0f, 0.0f});
+             views[eye].pose.orientation = orientation;
+-            views[eye].pose.position = {shown.render_pose.position.x + offset.x,
+-                                        shown.render_pose.position.y + offset.y,
+-                                        shown.render_pose.position.z + offset.z};
++            views[eye].pose.position = startup_head_ready
++                ? XrVector3f{shown.render_pose.position.x + offset.x,
++                             shown.render_pose.position.y + offset.y,
++                             shown.render_pose.position.z + offset.z}
++                : offset;
+             // "Out" is towards the temple: left for the left eye, right for the right one.
+             views[eye].fov.angleLeft = eye == 0 ? -angle_out : -angle_in;
+             views[eye].fov.angleRight = eye == 0 ? angle_in : angle_out;
+@@ -2560,7 +2598,7 @@ struct OpenXrHost::Impl {
+             views[eye].subImage.imageRect.extent = {eye_width,
+                                                     static_cast<int32_t>(swapchain_height)};
+         }
+-        projection.space = local_space;
++        projection.space = startup_head_ready ? local_space : view_space;
+         projection.viewCount = 2;
+         projection.views = views;
+     }
+diff --git a/src/core/vr/vr_runtime.cpp b/src/core/vr/vr_runtime.cpp
+index d31978d..8bef437 100644
+--- a/src/core/vr/vr_runtime.cpp
++++ b/src/core/vr/vr_runtime.cpp
+@@ -286,7 +286,15 @@ void Runtime::RecenterSeatLocked() {
+     if (!host_head.tracked) {
+         return;
+     }
+-    const Quat yaw = YawOnly(host_head.pose.orientation);
++    bool htl = false;
++    bool openxr = false;
++    EnvFlag("SHADPS4_HTL_COMPAT", htl);
++    EnvFlag("SHADPS4_OPENXR", openxr);
++    // HTL's host reference can start rolled 180 degrees. A yaw-only origin leaves
++    // that host-space roll in the guest camera. Use the complete calibration basis;
++    // PlaceHead and ToHostSpace already apply the matching inverse/forward transforms.
++    const Quat yaw = htl && openxr ? Normalize(host_head.pose.orientation)
++                                  : YawOnly(host_head.pose.orientation);
+     if (seat_valid && pad_attitude_valid) {
+         // The controller keeps pointing where it points: its heading is counted from the new
+         // straight ahead.
 diff --git a/src/video_core/amdgpu/command_copy.h b/src/video_core/amdgpu/command_copy.h
 new file mode 100644
 index 0000000..029f001

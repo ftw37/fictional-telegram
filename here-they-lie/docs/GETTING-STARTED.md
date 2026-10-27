@@ -31,7 +31,9 @@ Replace `$python` with the real executable path if Windows resolves a Store alia
 
 ### Optional experimental Quest candidate
 
-The baseline above contains the verified audio/rendering work. The additional Quest patch contains the loading-assertion fix, initial-pose hypothesis and crash diagnostics. Its latest orientation behavior is **not physically verified**. Prefer a separate development root to retain a baseline.
+For the latest exact builds, physical retest evidence and feature flags, read [RESUME-HERE](RESUME-HERE.md). The latest Quest candidate has a user-confirmed upright image and a battery-limited crash-free retest, not full-game qualification.
+
+The baseline above contains the verified audio/rendering work. The additional Quest patch contains the loading-assertion fix, initial-pose hypothesis and crash diagnostics. Earlier startup gates failed; the current full-reference fix has now been physically verified upright. Longer crash stability remains unqualified. Prefer a separate development root to retain a baseline.
 
 ```powershell
 . .\scripts\Enter-BuildEnvironment.ps1 -ToolsRoot $tools
@@ -91,12 +93,13 @@ Use the launcher: running an old executable directly may omit required compatibi
 
 ```powershell
 Remove-Item Env:VR_PATHREG_OVERRIDE -ErrorAction SilentlyContinue
+$env:SHADPS4_HTL_LEAF_FRAME = '1' # latest Quest patch only; enable its exact-function stack fix
 $env:XR_RUNTIME_JSON = 'C:\Program Files (x86)\Steam\steamapps\common\SteamVR\steamxr_win64.json'
 Test-Path $env:XR_RUNTIME_JSON  # must print True; adjust if Steam is elsewhere
 & $python .\scripts\launch_here_they_lie.py --development-root $dev --game $game --mode quest --renderer-sync pass --real-occlusion
 ```
 
-Quest mode enables OpenXR tracking, Touch mappings, theatre transitions and automatic calibration; Xbox input is also available. The latest candidate waits for upright tracked startup poses. Blank startup or continued inversion needs a physical retest/logs. Don't force a global texture flip: gameplay tracking/orientation worked in the previous physical run.
+Quest mode enables OpenXR tracking, Touch mappings, theatre transitions and automatic calibration; Xbox input is also available. The latest candidate admits tracked poses regardless of roll and uses a full initial reference basis. Broad `General.redzone_patches` remains false; the separate `SHADPS4_HTL_LEAF_FRAME=1` enables the exact-function stack reservation. The old upright-pose gate caused black/head-locked output and must not be restored. Don't force a global texture flip: gameplay tracking/orientation worked in the previous physical run.
 
 Source eyes are approximately 960x1080 each, lower than Quest 2 panels; expect softness. Full FOV/comfort validation remains open. Virtual Desktop Synchronous Spacewarp is an optional headset-side experiment (for example 90 Hz / 45 FPS source), not a qualified performance solution for this game.
 

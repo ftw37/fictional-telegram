@@ -1,6 +1,6 @@
 # Inca Curse — recovered Inform 7 edition
 
-**Here They Lie on PC / Quest 2:** [progress](here-they-lie/docs/PROJECT-STATUS-2026-10-26.md) | [setup on another Windows PC](here-they-lie/docs/GETTING-STARTED.md).
+**Here They Lie on PC / Quest 2:** [current handoff and research memory](here-they-lie/docs/RESUME-HERE.md) | [progress](here-they-lie/docs/PROJECT-STATUS-2026-10-26.md) | [setup on another Windows PC](here-they-lie/docs/GETTING-STARTED.md).
 
 **Space Invaders from the Internet Archive PET disk:** the new [browser port and source notes](archive-space-invaders/README.md) use the exact `SPACE INVADERS` executable from [this archive entry](https://archive.org/details/d64_petgame_space_invaders). Open [its browser page](archive-space-invaders/index.html), or download [the standalone ZIP](archive-space-invaders/Space-Invaders-Archive-Browser.zip), unzip it, and open `index.html`. This is a different release from Galaxy Invaders below.
 

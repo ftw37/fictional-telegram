@@ -1,5 +1,7 @@
 # HTL Quest Touch mapping
 
+**October 26 isolated Quest candidate:** both thumbsticks pressed IN now sends OPTIONS while held, consuming L3/R3 and replacing the synthetic recenter chord for HTL. Normal stable builds retain their older mapping. SteamVR/Meta may reserve the physical menu buttons. See [candidate notes](QUEST-CONTROLLER-STARTUP-2026-10-26.md).
+
 ## Automatic startup calibration (build 39)
 
 Quest launches now set `SHADPS4_HTL_AUTO_CALIBRATE=1`. After at least 30 delivered game frames, valid tracked headset frames, and three seconds of focused controller updates, the emulator holds Options for two seconds once, then releases it. Face forward during startup. This automates the game's initial heading setup rather than removing its calibration logic. Preview launches leave the helper off.

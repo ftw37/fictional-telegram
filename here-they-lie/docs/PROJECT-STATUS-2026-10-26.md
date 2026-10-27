@@ -1,5 +1,7 @@
 # Here They Lie progress — October 26, 2026
 
+> Historical snapshot: later physical orientation and crash retests are recorded in [the current handoff](RESUME-HERE.md). Follow that handoff for the current candidate and defaults.
+
 This project adapts an AstroQuest-derived PSVR compatibility layer onto pinned shadPS4 0.20 source. The PS4 game runs on a Windows PC; OpenXR sends stereo views to SteamVR and Virtual Desktop streams them to Quest 2. It is not a native Quest application and does not distribute the game.
 
 ## What has been demonstrated
