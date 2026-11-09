@@ -9,6 +9,10 @@ Last reconciled with source, installed executable hashes, logs and user reports:
 3. [PSVR porting playbook](PSVR-PORTING-PLAYBOOK.md) for applying the lessons to another title.
 4. [New-PC setup](GETTING-STARTED.md) for build/runtime preparation. Apply the latest-candidate qualifications below.
 
+## November 8 clock comparison
+
+Compared DriveclubPCVR's fixed-1.6-GHz defect with HTL's main timing path. HTL replaces its on-disk console-frequency conversion default at initialization with 1 / the emulator-reported counter frequency. Earlier engine/wall samples were near 1.0. No analogous defect demonstrated in this path and no clock/runtime changes made. See [clock audit and limits](CLOCK-AUDIT-2026-11-08.md). Do not copy Driveclub's coefficient patch into HTL without independent evidence.
+
 ## Current result and limits
 
 The user physically tested Here They Lie CUSA05344 v01.00 on Quest 2 via Virtual Desktop and SteamVR. Logos, loading, calibration, main menu and gameplay are now upright; head tracking works. Pressing both Touch thumbsticks IN together sends PS4 OPTIONS; holding the chord forwards a held OPTIONS input. Audio was explicitly confirmed good: speech, footsteps and ambience audible. Native comfort settings now control turning/periphery effects, with original game assets selected.
